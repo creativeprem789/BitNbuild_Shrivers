@@ -215,78 +215,61 @@ Example
        cd backend
 
        uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
-🌐 API Endpoints
+## 🌐 API Endpoints
 
 Once the server is running:
-| Endpoint                     | Purpose                     |
-| ---------------------------- | --------------------------- |
-| `GET /docs`                  | Swagger API documentation   |
-| `GET /health`                | Backend health check        |
+
+| Endpoint | Purpose |
+| :--- | :--- |
+| `GET /docs` | Swagger API documentation |
+| `GET /health` | Backend health check |
 | `WS /ws/tasks?subscribe=all` | Real-time task event stream |
-| `GET /orchestration/graph`   | View orchestration graph    |
-Local URLs:
-Swagger:
-http://localhost:8000/docs
+| `GET /orchestration/graph` | View orchestration graph |
 
-Health:
-http://localhost:8000/health
+### Local URLs:
+* **Swagger**: http://localhost:8000/docs
+* **Health**: http://localhost:8000/health
+* **WebSocket**: ws://localhost:8000/ws/tasks?subscribe=all
+* **Graph**: http://localhost:8000/orchestration/graph
 
-WebSocket:
-ws://localhost:8000/ws/tasks?subscribe=all
+---
 
-Graph:
-http://localhost:8000/orchestration/graph
+## 🔬 Testing
 
-Testing
 The current test suite covers:
 
-Router classification
-Low-confidence fallback
-Linear task execution
-Multi-agent handoffs
-Blocked task recovery
-WebSocket event contracts
-Atomic event sequence generation
-REST re-synchronization
+* Router classification
+* Low-confidence fallback
+* Linear task execution
+* Multi-agent handoffs
+* Blocked task recovery
+* WebSocket event contracts
+* Atomic event sequence generation
+* REST re-synchronization
 
-🔐 Reliability & State Management
+---
+
+## 🔐 Reliability & State Management
 
 The system is designed around reliable task-state tracking:
 
-Persistent task event history
-Monotonic event sequence numbers
-Database-backed task state
-WebSocket event streaming
-REST-based re-synchronization
-Agent handoffs
-Blocked-task recovery
-Redis support for distributed event streaming
-In-memory event bus for lightweight local development
+* Persistent task event history
+* Monotonic event sequence numbers
+* Database-backed task state
+* WebSocket event streaming
+* REST-based re-synchronization
+* Agent handoffs
+* Blocked-task recovery
+* Redis support for distributed event streaming
+* In-memory event bus for lightweight local development
 
-📄 License
+---
+
+## 📄 License
 
 MIT License
 
 Built for the Bit N Build Hackathon.
 
-### One important change I made
-
-I would **not keep the original phrase**:
-
-> `100% automated test coverage`
-
-unless you have actually run a coverage tool such as `pytest-cov` and verified 100% code coverage.
-
-Your source currently establishes **8/8 tests passing**, which is a different claim. :contentReference[oaicite:3]{index=3}
-
-So the polished README says:
-
-> **8 / 8 tests passing — 100% test pass rate**
-
-That is precise and professional.
-
-Also, your original architecture, folder structure, event contract, setup commands, and test cases have been retained rather than replacing the actual project details with generic README content. :contentReference[oaicite:4]{index=4} :contentReference[oaicite:5]{index=5}
-
-**For GitHub, I would use this version on `main` as the project-level README.** Then you can keep a more technical backend-specific README inside `backend/` if you want detailed implementation documentation.
 
 
