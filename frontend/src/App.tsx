@@ -17,7 +17,7 @@ export function App() {
     activityLogs,
     agentStates,
     clearAllTasks
-  } = useTaskSocket(true); // Defaults to true for standalone demo mode
+  } = useTaskSocket(false); // Defaults to false for live backend connection
 
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [isMermaidOpen, setIsMermaidOpen] = useState<boolean>(false);
