@@ -187,8 +187,9 @@ Each task maintains a strictly increasing sequence_no so the frontend can recons
 | `task.blocked`   | Execution requires additional information or recovery |
 | `task.completed` | Task execution has finished                           |
 
-Example
+### Example Event Payload
 
+```json
 {
   "event": "task.routed",
   "task_id": "123",
@@ -197,25 +198,43 @@ Example
   "reason": "Calendar-related request",
   "sequence_no": 2
 }
-⚙️ Quick Start
-  1. Clone the Repository
-      git clone <repository-url>
-      cd BitNBuild
-  2. Create Environment File
-       cp .env.example .env
-   Configure the required environment variables:
-        GEMINI_API_KEY=your_gemini_api_key_here
+```
 
-      ROUTER_MODEL=gemini-flash-latest
-      AGENT_MODEL=gemini-flash-latest
+---
 
-      DATABASE_URL=postgresql+asyncpg://postgres.[PROJECT_REF]:[PASSWORD]@aws-0-                    [REGION].pooler.supabase.com:6543/postgres
-  3. Install Dependencies
-       pip install -r backend/requirements.txt
-  4. Start the Backend
-       cd backend
+## ⚙️ Quick Start
 
-       uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+### 1. Clone the Repository
+```bash
+git clone <repository-url>
+cd BitNBuild
+```
+
+### 2. Create Environment File
+```bash
+cp .env.example .env
+```
+
+Configure the required environment variables in `.env`:
+```env
+GEMINI_API_KEY=your_gemini_api_key_here
+ROUTER_MODEL=gemini-flash-latest
+AGENT_MODEL=gemini-flash-latest
+
+DATABASE_URL=postgresql+asyncpg://postgres.[PROJECT_REF]:[PASSWORD]@aws-0-[REGION].pooler.supabase.com:6543/postgres
+```
+
+### 3. Install Dependencies
+```bash
+pip install -r backend/requirements.txt
+```
+
+### 4. Start the Backend
+```bash
+cd backend
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+```
+
 ## 🌐 API Endpoints
 
 Once the server is running:
@@ -271,6 +290,5 @@ The system is designed around reliable task-state tracking:
 MIT License
 
 Built for the Bit N Build Hackathon.
-
 
 
