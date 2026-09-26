@@ -56,49 +56,54 @@ REST APIs handle task operations while WebSockets provide real-time execution up
 
 ## 🏗 System Architecture
 
+## 🏗 System Architecture
+
 ```text
                     ┌──────────────────────────────┐
-                    │     Virtual Office UI        │
-                    │   Desks = Agents            │
-                    │   Token = Active Task        │
+                    │       Virtual Office UI      │
+                    │      Desks = Agents          │
+                    │      Token = Active Task     │
                     └──────────────┬───────────────┘
                                    │
-                          WebSocket / REST
+                              WebSocket / REST
                                    │
                     ┌──────────────▼───────────────┐
-                    │       FastAPI Gateway        │
+                    │        FastAPI Gateway       │
                     │                              │
-                    │  REST API + WebSocket API    │
+                    │    REST API + WebSocket API  │
                     └──────────────┬───────────────┘
                                    │
                     ┌──────────────▼───────────────┐
-                    │       Event Bus              │
-                    │  In-Memory / Redis Pub/Sub   │
-                    └──────────────┬───────────────┘
+                    │          Event Bus            │
+                    │       In-Memory Async         │
+                    └──────────────┬────────────────┘
                                    │
                     ┌──────────────▼───────────────┐
-                    │      LangGraph Engine        │
+                    │       LangGraph Engine       │
                     │                              │
-                    │  classify_and_route          │
-                    │          │                   │
-                    │    ┌─────┼─────┬─────────┐   │
-                    │    ▼     ▼     ▼         ▼   │
-                    │  Email Calendar Search Custom│
-                    │    │     │     │         │   │
-                    │    └─────┴─────┴─────────┘   │
+                    │      classify_and_route      │
                     │              │               │
-                    │        Agent Handoffs        │
+                    │    ┌─────────┼─────────┐     │
+                    │    ▼         ▼         ▼     │
+                    │  Email    Calendar   Search  │
+                    │  Agent      Agent     Agent  │
+                    │    │         │         │     │
+                    │    └─────────┼─────────┘     │
+                    │              ▼               │
+                    │         Custom Agent        │
                     │              │               │
-                    │         Block / Resume       │
+                    │       Agent Handoffs        │
                     │              │               │
-                    │           Finalize            │
+                    │         Block / Resume      │
+                    │              │               │
+                    │           Finalize           │
                     └──────────────┬───────────────┘
                                    │
                     ┌──────────────▼───────────────┐
-                    │      PostgreSQL / Supabase   │
+                    │       PostgreSQL / Supabase  │
                     │                              │
-                    │      Task Event Timeline     │
-                    │      Monotonic Sequence No.  │
+                    │       Task Event Timeline   │
+                    │    Monotonic Sequence No.   │
                     └──────────────────────────────┘
 ```
 
