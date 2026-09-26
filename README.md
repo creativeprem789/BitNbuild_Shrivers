@@ -1,294 +1,282 @@
-# Interactive Multi-Agent Task Harness
+# Interactive Multi-Agent Task Harness 🏢⚡
 
-> **Bit N Build Hackathon — Problem Statement 05**
-
-An enterprise-oriented asynchronous multi-agent orchestration backend that converts natural-language tasks into coordinated AI workflows.
-
-The system uses **Google Gemini Flash** for task classification, **LangGraph** for orchestration, specialized AI agents for domain-specific execution, and **WebSockets** for real-time task-state streaming to a virtual-office frontend.
+**Bit N Build — Problem Statement 05**  
+An enterprise-grade, asynchronous multi-agent orchestration backend. A user submits tasks in natural language; the system classifies them using **Google Gemini 2.5 Flash** (via the modern `google-genai` SDK), routes them to specialized AI agents, supports dynamic cross-domain handoffs mid-execution, and streams every atomic state transition over WebSocket in real time to render a "virtual office" (desks = agents, task = moving token).
 
 ---
 
-## 🚀 Overview
+## 🏛 System Architecture & Workflow
 
-The Interactive Multi-Agent Task Harness allows a user to submit a task in natural language and automatically:
-
-1. Understand the task intent
-2. Route it to the appropriate AI agent
-3. Execute the task through a structured workflow
-4. Dynamically hand off work between agents when required
-5. Pause when additional information is needed
-6. Resume execution from the blocked state
-7. Stream every task-state transition in real time
-
-The frontend represents this workflow as a **virtual office**:
-
-- **Desks** → AI agents
-- **Task token** → Active task
-- **Movement** → Agent transitions and handoffs
-- **Events** → Real-time execution state
-
----
-
-## ✨ Key Features
-
-### Intelligent Task Routing
-Natural-language tasks are classified using **Google Gemini Flash** and routed to specialized agents.
-
-### Multi-Agent Orchestration
-**LangGraph StateGraph** manages the workflow using explicit nodes and conditional transitions.
-
-### Dynamic Agent Handoffs
-An agent can delegate a task to another specialized agent when the workflow crosses domains.
-
-### Real-Time Execution Streaming
-Every important state transition is published through a **WebSocket event stream**.
-
-### Block & Resume
-Tasks can enter a blocked state when required information or an external dependency is unavailable and can later resume from that state.
-
-### Persistent Event Timeline
-Task events are stored with strictly increasing sequence numbers, allowing the frontend to reconstruct the complete execution timeline.
-
-### REST + WebSocket APIs
-REST APIs handle task operations while WebSockets provide real-time execution updates.
-
----
-
-## 🏗 System Architecture
-
-```text
-                    ┌──────────────────────────────┐
-                    │       Virtual Office UI      │
-                    │      Desks = Agents          │
-                    │      Token = Active Task     │
-                    └──────────────┬───────────────┘
-                                   │
-                              WebSocket / REST
-                                   │
-                    ┌──────────────▼───────────────┐
-                    │        FastAPI Gateway       │
-                    │                              │
-                    │    REST API + WebSocket API  │
-                    └──────────────┬───────────────┘
-                                   │
-                    ┌──────────────▼───────────────┐
-                    │          Event Bus            │
-                    │       In-Memory Async         │
-                    └──────────────┬────────────────┘
-                                   │
-                    ┌──────────────▼───────────────┐
-                    │       LangGraph Engine       │
-                    │                              │
-                    │      classify_and_route      │
-                    │              │               │
-                    │    ┌─────────┼─────────┐     │
-                    │    ▼         ▼         ▼     │
-                    │  Email    Calendar   Search  │
-                    │  Agent      Agent     Agent  │
-                    │    │         │         │     │
-                    │    └─────────┼─────────┘     │
-                    │              ▼               │
-                    │         Custom Agent        │
-                    │              │               │
-                    │       Agent Handoffs        │
-                    │              │               │
-                    │         Block / Resume      │
-                    │              │               │
-                    │           Finalize           │
-                    └──────────────┬───────────────┘
-                                   │
-                    ┌──────────────▼───────────────┐
-                    │      PostgreSQL / Supabase   │
-                    │                              │
-                    │       Task Event Timeline   │
-                    │    Monotonic Sequence No.   │
-                    └──────────────────────────────┘
+```
+                                ┌───────────────────────────┐
+                                │   Frontend Virtual Office │
+                                │ (Desks = Agents, Tokens)  │
+                                └─────────────┬─────────────┘
+                                              │
+                      ┌───────────────────────┴───────────────────────┐
+                      │ WebSocket Stream (ws://.../ws/tasks)          │
+                      │ REST API & Re-sync (http://.../tasks/{id})    │
+                      ▼                                               ▼
+          ┌───────────────────────┐                       ┌───────────────────────┐
+          │    FastAPI Gateway    │                       │  Re-sync & Timeline   │
+          │   (ws_gateway.py)     │                       │  (routes_tasks.py)    │
+          └───────────▲───────────┘                       └───────────┬───────────┘
+                      │                                               │
+             Redis Pub/Sub Channel                            PostgreSQL Database
+             `task-events:{task_id}`                      Atomic `task_events` audit
+                      │                                   Monotonic `sequence_no`
+          ┌───────────┴───────────┐                                   │
+          │    Redis Event Bus    │                                   │
+          │    (event_bus.py)     │◄──────────────────────────────────┘
+          └───────────▲───────────┘
+                      │ (DB Commit before Publish)
+                      │
+   ═══════════════════╧════════════════════════════════════════════════════════
+                        LANGGRAPH ORCHESTRATION ENGINE
+   ════════════════════════════════════════════════════════════════════════════
+                                  [ START ]
+                                      │
+                                      ▼
+                           [ classify_and_route ]
+                     (Google Gemini 2.5 Flash / Router)
+                       Confidence < 0.60 ──► custom_agent
+                                      │
+              ┌───────────────┬───────┴───────┬───────────────┐
+              ▼               ▼               ▼               ▼
+      [ email_agent ] [ calendar_agent ] [ search_agent ] [ custom_agent ]
+      (Specialist)    (Real HTTP API)    (Research)       (Resolver)
+              │               │               │               │
+              │◄──────────────┴───────┬───────┴──────────────►│ (Handoffs)
+              │                       │                       │
+              ├───────────► [ BLOCKED: Awaiting Details ] ◄───┤
+              │                       │ (resume_from_blocked) │
+              │                       └───────────────────────┘
+              ▼
+         [ finalize ]
+     (Duration, Completed)
+              │
+              ▼
+           [ END ]
 ```
 
-## 🛠 Tech Stack
+---
 
-| Layer | Technology |
-|---|---|
-| API Framework | FastAPI |
-| Language | Python 3.11+ |
-| Agent Orchestration | LangGraph |
-| LLM | Google Gemini Flash |
-| Gemini SDK | `google-genai` |
-| Database | Supabase / PostgreSQL |
-| ORM | SQLAlchemy 2.0 Async |
-| Database Driver | `asyncpg` |
-| HTTP Client | HTTPX |
-| Real-Time Communication | WebSockets |
-| Testing | Pytest + pytest-asyncio |
-| API Testing | HTTPX ASGITransport |
+## 🚀 Key Features
 
-## 🛠 Detailed Folder Structure
+1. **Explicit LangGraph Orchestration**: Inspectable `StateGraph` state machine with formal node transitions and conditional routing (no ad-hoc if/else dispatch).
+2. **Single Source of Truth**: Every state transition writes an atomic, monotonic `task_events` record to PostgreSQL using database row locks (`SELECT ... FOR UPDATE`) before publishing to Redis Pub/Sub.
+3. **Frontend Event Contract Fidelity**: Emits the exact 5 event payloads expected by the virtual office UI:
+   - `task.created`: `{ task_id, description, sequence_no }`
+   - `task.routed`: `{ task_id, agent_id, confidence, reason, sequence_no }`
+   - `task.handoff`: `{ task_id, from_agent, to_agent, reason, sequence_no }`
+   - `task.blocked`: `{ task_id, agent_id, reason, sequence_no }`
+   - `task.completed`: `{ task_id, duration_ms, sequence_no }`
+4. **WebSocket Reconnect Resilience**: Connected clients receive real-time streams; if a disconnect occurs mid-demo, clients call `GET /tasks/{id}` to fetch the ordered event timeline and restore UI state seamlessly.
+5. **Real External Calendar Integration**: `calendar_agent` performs actual external HTTP calls (via `httpx`) to read and book calendar events with verified status codes and payloads.
+6. **Graceful Fallbacks & Escalation**:
+   - Classification confidence `< 0.60` deliberately falls back to `custom_agent` with reason logging.
+   - Blocked tasks pause state; `resume_from_blocked(task_id)` retries with a cap at 2 attempts before escalating to `custom_agent`.
 
-```text
+---
+
+## 📦 Tech Stack
+
+- **Runtime**: Python 3.11+
+- **API Framework**: FastAPI (100% Async)
+- **Agent Orchestrator**: LangGraph (`StateGraph`, conditional edges)
+- **LLM Engine**: Google Gemini 2.5 Flash (`gemini-2.5-flash` via `google-genai` SDK)
+- **Task Queue & Pub/Sub**: Redis (`redis.asyncio`)
+- **Database & ORM**: PostgreSQL + SQLAlchemy 2.0 Async + asyncpg
+- **Migrations**: Alembic
+- **Containerization**: Docker & Docker Compose with healthchecks
+
+---
+
+## 🛠 Project Structure
+
+```
 BitNBuild/
-│
 ├── backend/
 │   ├── app/
-│   │   ├── main.py
-│   │   ├── config.py
-│   │   │
+│   │   ├── main.py                  # FastAPI app entrypoint, lifespan startup/shutdown & structured logging
+│   │   ├── config.py                # Pydantic-settings config (env, secrets, Gemini models)
 │   │   ├── api/
-│   │   │   ├── routes_tasks.py
-│   │   │   ├── ws_gateway.py
-│   │   │   └── schemas.py
-│   │   │
+│   │   │   ├── routes_tasks.py      # REST endpoints (/tasks, /health, /retry)
+│   │   │   └── ws_gateway.py        # Real-time WebSocket streaming gateway
 │   │   ├── orchestration/
-│   │   │   ├── graph.py
-│   │   │   ├── router_node.py
-│   │   │   ├── state.py
+│   │   │   ├── graph.py             # LangGraph StateGraph compiled definition
+│   │   │   ├── router_node.py       # Gemini 2.5 Flash structured classifier & fallback
+│   │   │   ├── state.py             # TaskState Pydantic schema
 │   │   │   └── agents/
-│   │   │       ├── base_agent.py
-│   │   │       ├── email_agent.py
-│   │   │       ├── calendar_agent.py
-│   │   │       ├── search_agent.py
-│   │   │       └── custom_agent.py
-│   │   │
+│   │   │       ├── base_agent.py    # BaseAgent abstract class
+│   │   │       ├── email_agent.py   # Email Specialist
+│   │   │       ├── calendar_agent.py# Real External HTTP Calendar integration
+│   │   │       ├── search_agent.py  # Research Analyst
+│   │   │       └── custom_agent.py  # Executive Resolver (Fallback & Escalation)
 │   │   ├── db/
-│   │   │   ├── models.py
-│   │   │   ├── schema.sql
-│   │   │   ├── session.py
-│   │   │   └── repository.py
-│   │   │
+│   │   │   ├── models.py            # SQLAlchemy 2.0 ORM models
+│   │   │   ├── schema.sql           # Reference raw DDL
+│   │   │   ├── session.py           # Async engine, sessionmaker, startup retry
+│   │   │   └── repository.py        # Atomic sequence generation & task queries
 │   │   └── events/
-│   │       ├── event_bus.py
-│   │       └── event_schemas.py
-│   │
+│   │       ├── event_bus.py         # Redis Pub/Sub publisher and subscriber
+│   │       └── event_schemas.py     # Pydantic models for frontend event contract
 │   ├── alembic/
 │   │   ├── versions/
+│   │   │   └── 0001_initial_schema.py # Initial migration & seeded agents
 │   │   └── env.py
-│   │
 │   ├── tests/
-│   │   ├── conftest.py
-│   │   ├── test_state_machine.py
-│   │   ├── test_router.py
-│   │   └── test_ws_contract.py
-│   │
+│   │   ├── test_state_machine.py    # LangGraph lifecycle, handoff, and retry tests
+│   │   ├── test_router.py           # Classifier & low-confidence fallback tests
+│   │   └── test_ws_contract.py      # Event schema contract & monotonic sequence tests
+│   ├── Dockerfile
 │   ├── requirements.txt
 │   └── alembic.ini
-│
-├── .env.example
-├── .gitignore
+├── docker-compose.yml               # Multi-container orchestration (api, postgres, redis)
+├── .env.example                     # Environment template
 └── README.md
-
-## 🔄 Real-Time Event Contract
-The backend exposes a WebSocket stream:
-  /ws/tasks?subscribe=all
-Each task maintains a strictly increasing sequence_no so the frontend can reconstruct the exact execution timeline.
-| Event            | Purpose                                               |
-| ---------------- | ----------------------------------------------------- |
-| `task.created`   | Task has been submitted                               |
-| `task.routed`    | Task has been assigned to an agent                    |
-| `task.handoff`   | Task has moved between agents                         |
-| `task.blocked`   | Execution requires additional information or recovery |
-| `task.completed` | Task execution has finished                           |
-
-### Example Event Payload
-
-```json
-{
-  "event": "task.routed",
-  "task_id": "123",
-  "agent_id": "calendar_agent",
-  "confidence": 0.95,
-  "reason": "Calendar-related request",
-  "sequence_no": 2
-}
 ```
 
 ---
 
-## ⚙️ Quick Start
+## 🚀 Quickstart & Run Instructions
 
-### 1. Clone the Repository
-```bash
-git clone <repository-url>
-cd BitNBuild
-```
-
-### 2. Create Environment File
+### 1. Configure Environment
+Copy the `.env.example` file:
 ```bash
 cp .env.example .env
 ```
+*(Optional: Set your `GEMINI_API_KEY` in `.env` if you want live Gemini 2.5 Flash calls. If left empty, the built-in deterministic router handles all tasks seamlessly without external network dependencies).*
 
-Configure the required environment variables in `.env`:
-```env
-GEMINI_API_KEY=your_gemini_api_key_here
-ROUTER_MODEL=gemini-flash-latest
-AGENT_MODEL=gemini-flash-latest
-
-DATABASE_URL=postgresql+asyncpg://postgres.[PROJECT_REF]:[PASSWORD]@aws-0-[REGION].pooler.supabase.com:6543/postgres
-```
-
-### 3. Install Dependencies
+### 2. Launch with Docker Compose
+Start PostgreSQL, Redis, and the FastAPI Backend with verified healthchecks:
 ```bash
-pip install -r backend/requirements.txt
+docker-compose up --build
 ```
 
-### 4. Start the Backend
+The services will initialize in proper order:
+1. `postgres` (healthy on port 5432)
+2. `redis` (healthy on port 6379)
+3. `api` (starts after dependencies are healthy, runs startup DB retries, ready on port 8000)
+
+---
+
+## 📡 Live Demo & API Walkthrough
+
+### 1. Listen to Real-Time Events via WebSocket
+Open a terminal and connect using `wscat`:
 ```bash
-cd backend
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+# Subscribe to all events across the virtual office
+wscat -c "ws://localhost:8000/ws/tasks?subscribe=all"
+```
+Or send JSON upon connection:
+```json
+{"subscribe": "all"}
 ```
 
-## 🌐 API Endpoints
+### 2. Submit a Task (Trigger Orchestration)
+In another terminal, submit a natural language task via `curl`:
+```bash
+curl -X POST http://localhost:8000/tasks \
+  -H "Content-Type: application/json" \
+  -d '{"description": "Schedule a quarterly product review with the engineering team tomorrow at 2 PM"}'
+```
+**Response:**
+```json
+{
+  "task_id": "4b63e8a2-a9b1-4f4d-82fa-8cf7c89a01f9",
+  "status": "received",
+  "description": "Schedule a quarterly product review with the engineering team tomorrow at 2 PM"
+}
+```
 
-Once the server is running:
+### 3. Watch Live Streamed Events in WebSocket Terminal
+The WebSocket client immediately receives ordered event payloads:
+```json
+{"event": "task.created", "event_type": "task.created", "task_id": "4b63e8a2...", "description": "Schedule...", "sequence_no": 1}
+{"event": "task.routed", "event_type": "task.routed", "task_id": "4b63e8a2...", "agent_id": "calendar_agent", "confidence": 0.95, "reason": "Task involves scheduling or calendar event coordination.", "sequence_no": 2}
+{"event": "task.completed", "event_type": "task.completed", "task_id": "4b63e8a2...", "duration_ms": 1280, "sequence_no": 3}
+```
 
-| Endpoint | Purpose |
-| :--- | :--- |
-| `GET /docs` | Swagger API documentation |
-| `GET /health` | Backend health check |
-| `WS /ws/tasks?subscribe=all` | Real-time task event stream |
-| `GET /orchestration/graph` | View orchestration graph |
+### 4. Cross-Domain Multi-Agent Handoff Demo
+Submit a task requiring multiple specialties (Search -> Email):
+```bash
+curl -X POST http://localhost:8000/tasks \
+  -H "Content-Type: application/json" \
+  -d '{"description": "Research the latest benchmarks on LangGraph orchestration, and email the report to the VP"}'
+```
+You will observe:
+1. `task.created` (seq=1)
+2. `task.routed` -> `search_agent` (seq=2)
+3. `task.handoff` -> from `search_agent` to `email_agent` with human-readable reason (seq=3)
+4. `task.completed` -> duration_ms computed (seq=4)
 
-### Local URLs:
-* **Swagger**: http://localhost:8000/docs
-* **Health**: http://localhost:8000/health
-* **WebSocket**: ws://localhost:8000/ws/tasks?subscribe=all
-* **Graph**: http://localhost:8000/orchestration/graph
+### 5. Blocked Task & Human-in-the-Loop Retry Demo
+Submit a task with incomplete scheduling instructions:
+```bash
+curl -X POST http://localhost:8000/tasks \
+  -H "Content-Type: application/json" \
+  -d '{"description": "Book conference room Alpha (unscheduled date and time)"}'
+```
+The state machine identifies missing parameters and pauses at `task.blocked`:
+```json
+{"event": "task.blocked", "event_type": "task.blocked", "task_id": "...", "agent_id": "calendar_agent", "reason": "Missing date and time parameters for calendar reservation. Blocked awaiting scheduling details.", "sequence_no": 3}
+```
+
+To resume the blocked task, call the retry endpoint:
+```bash
+curl -X POST http://localhost:8000/tasks/<task_id>/retry
+```
+The task re-enters the graph. If retried beyond 2 attempts, it automatically escalates to `custom_agent` for executive resolution!
+
+### 6. Re-Sync After WebSocket Disconnect
+If the frontend disconnects or reloads:
+```bash
+curl http://localhost:8000/tasks/<task_id>
+```
+Returns the full task state along with the complete ordered event history:
+```json
+{
+  "task": {
+    "id": "4b63e8a2...",
+    "status": "completed",
+    "current_agent_id": "calendar_agent",
+    "duration_ms": 1280
+  },
+  "events": [
+    { "sequence_no": 1, "event_type": "task.created", "payload": { ... } },
+    { "sequence_no": 2, "event_type": "task.routed", "payload": { ... } },
+    { "sequence_no": 3, "event_type": "task.completed", "payload": { ... } }
+  ]
+}
+```
+
+### 7. Export LangGraph Mermaid Diagram for Judges Walkthrough
+```bash
+curl http://localhost:8000/orchestration/graph
+```
+Returns the exact Mermaid state diagram representing the inspectable LangGraph state machine.
 
 ---
 
-## 🔬 Testing
+## 🔬 Automated Test Suite
 
-The current test suite covers:
+Run the full automated test suite covering state transitions, the router, and the WebSocket contract:
+```bash
+pytest -v backend/tests
+```
 
-* Router classification
-* Low-confidence fallback
-* Linear task execution
-* Multi-agent handoffs
-* Blocked task recovery
-* WebSocket event contracts
-* Atomic event sequence generation
-* REST re-synchronization
-
----
-
-## 🔐 Reliability & State Management
-
-The system is designed around reliable task-state tracking:
-
-* Persistent task event history
-* Monotonic event sequence numbers
-* Database-backed task state
-* WebSocket event streaming
-* REST-based re-synchronization
-* Agent handoffs
-* Blocked-task recovery
-* Redis support for distributed event streaming
-* In-memory event bus for lightweight local development
+**Results:**
+- `test_router.py::test_classify_offline_keywords` ✅ **PASSED**
+- `test_router.py::test_low_confidence_fallback_to_custom_agent` ✅ **PASSED**
+- `test_state_machine.py::test_linear_calendar_task_execution` ✅ **PASSED**
+- `test_state_machine.py::test_multi_agent_handoff_flow` ✅ **PASSED**
+- `test_state_machine.py::test_blocked_task_and_retry_escalation` ✅ **PASSED**
+- `test_ws_contract.py::test_event_schema_contract_compliance` ✅ **PASSED**
+- `test_ws_contract.py::test_atomic_sequence_generation_in_repository` ✅ **PASSED**
+- `test_ws_contract.py::test_rest_api_reconnect_sync` ✅ **PASSED**
 
 ---
 
-## 📄 License
-
-MIT License
-
-Built for the Bit N Build Hackathon.
-
-
+## 🛡 License
+MIT License. Built for Bit N Build Hackathon.
