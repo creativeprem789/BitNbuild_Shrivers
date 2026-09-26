@@ -1,0 +1,168 @@
+@import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+:root {
+  --bg-dark: #090d16;
+  --bg-card: rgba(18, 24, 38, 0.75);
+  --bg-card-hover: rgba(26, 35, 55, 0.85);
+  --border-color: rgba(255, 255, 255, 0.08);
+  --border-highlight: rgba(99, 102, 241, 0.3);
+  
+  --text-main: #f3f4f6;
+  --text-muted: #9ca3af;
+  --text-dim: #6b7280;
+
+--agent-email: #5b8c7d;
+--agent-calendar: #c9a227;
+--agent-search: #4a90a4;
+--agent-custom: #c17a4a;
+
+--color-accent: #c17a4a;
+--color-success: #5b8c7d;
+--color-warning: #c9a227;
+--color-danger: #d9645c;
+
+
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background-color: var(--bg-dark);
+  color: var(--text-main);
+  min-height: 100vh;
+  overflow-x: hidden;
+  background-image: 
+    radial-gradient(circle at 15% 15%, rgba(59, 130, 246, 0.08) 0%, transparent 40%),
+    radial-gradient(circle at 85% 85%, rgba(139, 92, 246, 0.08) 0%, transparent 40%);
+  background-attachment: fixed;
+}
+
+code, pre, .font-mono {
+  font-family: 'JetBrains Mono', monospace;
+}
+
+/* Custom Scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.2);
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+/* Glassmorphism Panel */
+.glass-panel {
+  background: var(--bg-card);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+}
+
+.activity-feed-panel {
+  background: rgba(219, 39, 119, 0.42);
+}
+
+.agent-desk-panel {
+  background: rgba(230, 69, 157, 0.22);
+  border-color: rgba(225, 199, 26, 0.3);
+}
+
+.glass-panel-interactive {
+  transition: all 0.2s ease;
+}
+.glass-panel-interactive:hover {
+  border-color: rgba(255, 255, 255, 0.18);
+  box-shadow: 0 12px 40px 0 rgba(0, 0, 0, 0.5);
+  transform: translateY(-1px);
+}
+
+/* Blueprint Grid Background for Office Floor */
+.office-grid-bg {
+  background-size: 32px 32px;
+  background-image: 
+    linear-gradient(to right, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+}
+
+/* Desk Halo Glow Animations */
+@keyframes pulseGlowWorking {
+  0% { box-shadow: 0 0 15px rgba(59, 130, 246, 0.3); }
+  50% { box-shadow: 0 0 35px rgba(99, 102, 241, 0.6); }
+  100% { box-shadow: 0 0 15px rgba(59, 130, 246, 0.3); }
+}
+
+@keyframes pulseGlowBlocked {
+  0% { box-shadow: 0 0 15px rgba(239, 68, 68, 0.4); }
+  50% { box-shadow: 0 0 40px rgba(239, 68, 68, 0.8); }
+  100% { box-shadow: 0 0 15px rgba(239, 68, 68, 0.4); }
+}
+
+@keyframes floatIdle {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-4px); }
+}
+
+@keyframes zzzFloat {
+  0% { opacity: 0; transform: translateY(0) scale(0.7); }
+  50% { opacity: 1; transform: translateY(-12px) scale(1); }
+  100% { opacity: 0; transform: translateY(-24px) scale(1.2); }
+}
+
+@keyframes scanLine {
+  0% { top: 0%; }
+  100% { top: 100%; }
+}
+
+.anim-float {
+  animation: floatIdle 3s ease-in-out infinite;
+}
+
+.anim-zzz-1 {
+  animation: zzzFloat 2.5s ease-in-out infinite;
+}
+.anim-zzz-2 {
+  animation: zzzFloat 2.5s ease-in-out infinite 0.8s;
+}
+
+.desk-working {
+  animation: pulseGlowWorking 2s infinite ease-in-out;
+  border-color: rgba(99, 102, 241, 0.5) !important;
+}
+
+.desk-blocked {
+  animation: pulseGlowBlocked 1.5s infinite ease-in-out;
+  border-color: rgba(239, 68, 68, 0.6) !important;
+}
+
+/* Task Token Animation */
+.task-token-node {
+  transition: transform 0.85s cubic-bezier(0.34, 1.4, 0.64, 1), opacity 0.3s ease;
+  will-change: transform;
+}
+
+/* Pulsing Dots for Active DAG Connectors */
+@keyframes dashFlow {
+  to {
+    stroke-dashoffset: -32;
+  }
+}
+
+.dag-path-active {
+  stroke-dasharray: 8 8;
+  animation: dashFlow 1.2s linear infinite;
+}
