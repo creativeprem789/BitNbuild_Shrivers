@@ -56,8 +56,6 @@ REST APIs handle task operations while WebSockets provide real-time execution up
 
 ## 🏗 System Architecture
 
-## 🏗 System Architecture
-
 ```text
                     ┌──────────────────────────────┐
                     │       Virtual Office UI      │
@@ -100,34 +98,33 @@ REST APIs handle task operations while WebSockets provide real-time execution up
                     └──────────────┬───────────────┘
                                    │
                     ┌──────────────▼───────────────┐
-                    │       PostgreSQL / Supabase  │
+                    │      PostgreSQL / Supabase   │
                     │                              │
                     │       Task Event Timeline   │
                     │    Monotonic Sequence No.   │
                     └──────────────────────────────┘
 ```
 
-🛠 Tech Stack
+## 🛠 Tech Stack
 
-| Layer                   | Technology                      |
-| ----------------------- | ------------------------------- |
-| API Framework           | FastAPI                         |
-| Language                | Python 3.11+                    |
-| Agent Orchestration     | LangGraph                       |
-| LLM                     | Google Gemini Flash             |
-| Gemini SDK              | `google-genai`                  |
-| Database                | Supabase / PostgreSQL           |
-| ORM                     | SQLAlchemy 2.0 Async            |
-| Database Driver         | `asyncpg`                       |
-| HTTP Client             | HTTPX                           |
-| Real-Time Communication | WebSockets                      |
-| Testing                 | Pytest + pytest-asyncio         |
-| API Testing             | HTTPX ASGITransport             |
-
-
+| Layer | Technology |
+|---|---|
+| API Framework | FastAPI |
+| Language | Python 3.11+ |
+| Agent Orchestration | LangGraph |
+| LLM | Google Gemini Flash |
+| Gemini SDK | `google-genai` |
+| Database | Supabase / PostgreSQL |
+| ORM | SQLAlchemy 2.0 Async |
+| Database Driver | `asyncpg` |
+| HTTP Client | HTTPX |
+| Real-Time Communication | WebSockets |
+| Testing | Pytest + pytest-asyncio |
+| API Testing | HTTPX ASGITransport |
 
 ## 🛠 Detailed Folder Structure
 
+```text
 BitNBuild/
 │
 ├── backend/
@@ -178,8 +175,7 @@ BitNBuild/
 ├── .gitignore
 └── README.md
 
-🔄 Real-Time Event Contract
-
+## 🔄 Real-Time Event Contract
 The backend exposes a WebSocket stream:
   /ws/tasks?subscribe=all
 Each task maintains a strictly increasing sequence_no so the frontend can reconstruct the exact execution timeline.
