@@ -175,16 +175,19 @@ async def health_check(session: AsyncSession = Depends(get_db)):
         logger.error(f"Healthcheck DB failure: {e}")
         db_status = f"unhealthy: {e}"
 
-    # Check Redis
-    try:
-        r = await aioredis.from_url(settings.REDIS_URL, decode_responses=True)
-        await r.ping()
-        await r.close()
-    except Exception as e:
-        logger.error(f"Healthcheck Redis failure: {e}")
-        redis_status = f"unhealthy: {e}"
+    # Check Redis / Event Bus
+    if settings.REDIS_URL:
+        try:
+            r = await aioredis.from_url(settings.REDIS_URL, decode_responses=True)
+            await r.ping()
+            await r.close()
+        except Exception as e:
+            logger.error(f"Healthcheck Redis failure: {e}")
+            redis_status = f"unhealthy: {e}"
+    else:
+        redis_status = "in_memory (redis disabled)"
 
-    is_healthy = db_status == "healthy" and redis_status == "healthy"
+    is_healthy = db_status == "healthy" and ("unhealthy" not in redis_status)
     status_code = status.HTTP_200_OK if is_healthy else status.HTTP_503_SERVICE_UNAVAILABLE
 
     return HealthResponse(
@@ -192,6 +195,7 @@ async def health_check(session: AsyncSession = Depends(get_db)):
         database=db_status,
         redis=redis_status,
     )
+
 
 
 @router.get("/orchestration/graph")

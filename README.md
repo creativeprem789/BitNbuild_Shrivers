@@ -132,8 +132,6 @@ BitNBuild/
 │   ├── Dockerfile
 │   ├── requirements.txt
 │   └── alembic.ini
-├── scripts/
-│   └── seed_demo_tasks.py           # Pre-configured demo data seeder
 ├── docker-compose.yml               # Multi-container orchestration (api, postgres, redis)
 ├── .env.example                     # Environment template
 └── README.md
@@ -258,20 +256,6 @@ Returns the full task state along with the complete ordered event history:
 curl http://localhost:8000/orchestration/graph
 ```
 Returns the exact Mermaid state diagram representing the inspectable LangGraph state machine.
-
----
-
-## 🧪 Seeding Pre-configured Demo Tasks
-
-For live presentations where zero-latency demo runs are desired, run the seed script:
-```bash
-# Inside the container or locally:
-python scripts/seed_demo_tasks.py
-```
-This inserts:
-1. A completed single-agent Calendar task (with real API response data)
-2. A completed multi-agent handoff task (Search -> Email)
-3. A currently BLOCKED task (ready for a live `/retry` demo trigger)
 
 ---
 
