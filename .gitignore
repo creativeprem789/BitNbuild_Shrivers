@@ -11,6 +11,12 @@ __pycache__/
 *$py.class
 *.so
 
+# Database & Test databases
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+
 # Virtual Environments
 venv/
 env/
