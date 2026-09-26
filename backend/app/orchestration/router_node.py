@@ -1,6 +1,6 @@
 import json
 import logging
-from typing import Any, Dict
+from typing import Any, Dict, List
 from app.config import settings
 from app.db.repository import record_task_event
 from app.db.session import async_session_factory
@@ -101,7 +101,7 @@ def _classify_offline(description: str) -> Dict[str, Any]:
 
 async def classify_task(description: str) -> Dict[str, Any]:
     """
-    Classifies task using Google Gemini 2.5 Flash via google-genai SDK or robust fallback.
+    Classifies task using Google Gemini via google-genai SDK or robust fallback.
     Enforces structured JSON output: {agent_id, confidence, reasoning}.
     """
     api_key = settings.GEMINI_API_KEY or settings.GOOGLE_API_KEY
@@ -120,25 +120,48 @@ async def classify_task(description: str) -> Dict[str, Any]:
             temperature=0.0,
         )
 
-        response = await client.aio.models.generate_content(
-            model=settings.ROUTER_MODEL,
-            contents=f"Classify this task description: '{description}'",
-            config=config,
-        )
+        # Primary and candidate fallback models
+        models_to_try: List[str] = [
+            settings.ROUTER_MODEL,
+            "gemini-flash-latest",
+            "gemini-3.8-flash",
+            "gemini-3.5-flash",
+        ]
+        seen_models = set()
+        last_error = None
 
-        content = response.text.strip()
-        data = json.loads(content)
-        agent_id = data.get("agent_id", "custom_agent")
-        confidence = float(data.get("confidence", 0.5))
-        reasoning = data.get("reasoning") or data.get("reason", "Classified via Gemini Router.")
-        return {
-            "agent_id": agent_id,
-            "confidence": confidence,
-            "reasoning": reasoning,
-            "reason": reasoning,
-        }
+        for model_name in models_to_try:
+            if model_name in seen_models:
+                continue
+            seen_models.add(model_name)
+
+            try:
+                response = await client.aio.models.generate_content(
+                    model=model_name,
+                    contents=f"Classify this task description: '{description}'",
+                    config=config,
+                )
+
+                content = response.text.strip()
+                data = json.loads(content)
+                agent_id = data.get("agent_id", "custom_agent")
+                confidence = float(data.get("confidence", 0.5))
+                reasoning = data.get("reasoning") or data.get("reason", "Classified via Gemini Router.")
+                return {
+                    "agent_id": agent_id,
+                    "confidence": confidence,
+                    "reasoning": reasoning,
+                    "reason": reasoning,
+                }
+            except Exception as model_err:
+                last_error = model_err
+                logger.warning(f"Gemini call to {model_name} failed: {model_err}. Trying fallback model...")
+
+        logger.warning(f"All Gemini models exhausted. Last error: {last_error}. Using deterministic rule-based classifier.")
+        return _classify_offline(description)
+
     except Exception as e:
-        logger.warning(f"Gemini classification failed or timed out: {e}. Falling back to rule-based.")
+        logger.warning(f"Gemini client initialization failed: {e}. Falling back to rule-based.")
         return _classify_offline(description)
 
 

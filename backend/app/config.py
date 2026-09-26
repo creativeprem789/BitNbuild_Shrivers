@@ -10,16 +10,31 @@ class Settings(BaseSettings):
     DEBUG: bool = True
 
     # Database
-    DATABASE_URL: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/task_harness"
+    DATABASE_URL: str = Field(
+        default="sqlite+aiosqlite:///task_harness.db",
+        description="Async database connection string. Accepts postgresql+asyncpg:// or sqlite+aiosqlite:///"
+    )
 
-    # Redis Pub/Sub
-    REDIS_URL: str = "redis://localhost:6379/0"
+    # Redis Pub/Sub (Optional for hackathon demo; backend uses in-memory event bus when empty)
+    REDIS_URL: str = Field(default="", description="Optional Redis URL")
 
     # Google Gemini API
     GEMINI_API_KEY: str = Field(default="")
     GOOGLE_API_KEY: str = Field(default="")
-    ROUTER_MODEL: str = "gemini-2.5-flash"
-    AGENT_MODEL: str = "gemini-2.5-flash"
+    ROUTER_MODEL: str = "gemini-flash-latest"
+    AGENT_MODEL: str = "gemini-flash-latest"
+
+    @field_validator("DATABASE_URL", mode="before")
+    @classmethod
+    def normalize_database_url(cls, v: str) -> str:
+        if not v or not isinstance(v, str):
+            return "sqlite+aiosqlite:///task_harness.db"
+        # Render / Supabase / Neon often provide postgres:// or postgresql://
+        if v.startswith("postgres://"):
+            return v.replace("postgres://", "postgresql+asyncpg://", 1)
+        if v.startswith("postgresql://") and not v.startswith("postgresql+asyncpg://"):
+            return v.replace("postgresql://", "postgresql+asyncpg://", 1)
+        return v
 
     # Calendar Integration (Real external API or sandbox)
     CALENDAR_API_BASE_URL: str = "https://api.calendardemo.local/v1"

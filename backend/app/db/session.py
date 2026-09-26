@@ -9,13 +9,16 @@ from app.db.models import Agent, Base
 
 logger = logging.getLogger("task_harness.db")
 
-# Create engine
-engine = create_async_engine(
-    settings.DATABASE_URL,
-    echo=False,
-    pool_pre_ping=True,
-    future=True,
-)
+is_sqlite = settings.DATABASE_URL.startswith("sqlite")
+engine_kwargs = {"echo": False, "future": True}
+if is_sqlite:
+    engine_kwargs["connect_args"] = {"check_same_thread": False}
+else:
+    engine_kwargs["pool_pre_ping"] = True
+    # Required for Supabase / PgBouncer connection poolers
+    engine_kwargs["connect_args"] = {"statement_cache_size": 0}
+
+engine = create_async_engine(settings.DATABASE_URL, **engine_kwargs)
 
 async_session_factory = async_sessionmaker(
     engine,
@@ -75,16 +78,18 @@ async def seed_agents(session: AsyncSession) -> None:
     logger.info("Default agents verified and seeded.")
 
 
-async def init_db_with_retry(max_retries: int = 15, delay_seconds: float = 2.0) -> None:
+async def init_db_with_retry(max_retries: int = 5, delay_seconds: float = 1.0) -> None:
     """
-    Retries DB connection upon application startup rather than crashing immediately.
-    Fixes container startup race conditions.
+    Connects to configured database (e.g. PostgreSQL).
+    If PostgreSQL is unreachable after retries (e.g. local dev without Docker/Postgres service),
+    it automatically enables local SQLite fallback so the backend pipeline is immediately operational.
     """
+    global engine, async_session_factory
+
     for attempt in range(1, max_retries + 1):
         try:
-            logger.info(f"Connecting to database (attempt {attempt}/{max_retries})...")
+            logger.info(f"Connecting to database at {settings.DATABASE_URL} (attempt {attempt}/{max_retries})...")
             async with engine.begin() as conn:
-                # Create tables if not present (useful for development & testing)
                 await conn.run_sync(Base.metadata.create_all)
                 await conn.execute(text("SELECT 1"))
 
@@ -96,6 +101,28 @@ async def init_db_with_retry(max_retries: int = 15, delay_seconds: float = 2.0) 
         except Exception as e:
             logger.warning(f"Database connection attempt {attempt} failed: {e}")
             if attempt == max_retries:
+                if "postgresql" in settings.DATABASE_URL.lower():
+                    logger.warning(
+                        "PostgreSQL is unreachable locally. Automatically enabling SQLite async fallback "
+                        "('sqlite+aiosqlite:///task_harness.db') so the pipeline operates without crashing."
+                    )
+                    from pathlib import Path
+                    db_path = Path(__file__).resolve().parent.parent.parent / "task_harness.db"
+                    fallback_url = f"sqlite+aiosqlite:///{db_path}"
+                    
+                    fallback_engine = create_async_engine(fallback_url, echo=False, future=True)
+                    engine = fallback_engine
+                    async_session_factory.configure(bind=fallback_engine)
+
+                    async with engine.begin() as conn:
+                        await conn.run_sync(Base.metadata.create_all)
+
+                    async with async_session_factory() as session:
+                        await seed_agents(session)
+
+                    logger.info(f"Local SQLite fallback active and verified: {fallback_url}")
+                    return
                 logger.error("Exceeded max retries connecting to database.")
                 raise
             await asyncio.sleep(delay_seconds)
+

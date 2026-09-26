@@ -11,22 +11,24 @@ from app.db.session import engine, init_db_with_retry
 from app.events.event_bus import event_bus
 
 # Configure structured logging with task_id support
-class TaskIdFilter(logging.Filter):
-    def filter(self, record):
+class TaskIdFormatter(logging.Formatter):
+    def format(self, record):
         if not hasattr(record, "task_id"):
             record.task_id = "-"
-        return True
+        return super().format(record)
 
+
+handler = logging.StreamHandler(sys.stdout)
+handler.setFormatter(
+    TaskIdFormatter(
+        "%(asctime)s [%(levelname)s] [task_id=%(task_id)s] %(name)s: %(message)s"
+    )
+)
 
 logging.basicConfig(
     level=logging.INFO if not settings.DEBUG else logging.DEBUG,
-    format="%(asctime)s [%(levelname)s] [task_id=%(task_id)s] %(name)s: %(message)s",
-    handlers=[logging.StreamHandler(sys.stdout)],
+    handlers=[handler],
 )
-
-# Apply filter to root logger
-root_logger = logging.getLogger()
-root_logger.addFilter(TaskIdFilter())
 logger = logging.getLogger("task_harness.main")
 
 
@@ -46,13 +48,17 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.error(f"Critical error connecting to database on startup: {e}")
 
-    # Test Redis connection
-    try:
-        client = await event_bus.get_client()
-        await client.ping()
-        logger.info("Redis Pub/Sub connection established successfully.")
-    except Exception as e:
-        logger.warning(f"Initial Redis connection warning (will retry on demand): {e}")
+    # Initialize Event Bus
+    if settings.REDIS_URL:
+        try:
+            client = await event_bus.get_client()
+            if client:
+                await client.ping()
+                logger.info("Redis Pub/Sub connection established successfully.")
+        except Exception as e:
+            logger.info(f"Redis not available ({e}). Using In-Memory Event Bus.")
+    else:
+        logger.info("Event Bus: In-Memory (Zero external dependencies, ideal for single-instance & demo).")
 
     yield
 
