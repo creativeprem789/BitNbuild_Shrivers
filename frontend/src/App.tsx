@@ -1,12 +1,16 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useTaskSocket } from './hooks/useTaskSocket';
-import { Header } from './components/Header';
-import { TaskInput } from './components/TaskInput';
+import { Navigation } from './components/Navigation';
+import { DispatchSection } from './components/DispatchSection';
 import { OfficeFloor } from './components/OfficeFloor';
-import { StatusPanel } from './components/StatusPanel';
-import { ActivityFeed } from './components/ActivityFeed';
-import { MermaidModal } from './components/MermaidModal';
+import { ExecutionModal } from './components/ExecutionModal';
+import { ChatbotPanel } from './components/ChatbotPanel';
+import { HistoryPage } from './components/HistoryPage';
 import { apiCreateTask, apiRetryTask } from './services/api';
+import type { ActiveTask } from './types/task';
+import './index.css';
+
+type Page = 'workspace' | 'history';
 
 export function App() {
   const {
@@ -17,75 +21,107 @@ export function App() {
     activityLogs,
     agentStates,
     clearAllTasks
-  } = useTaskSocket(false); // Defaults to false for live backend connection
+  } = useTaskSocket(false);
 
-  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
-  const [isMermaidOpen, setIsMermaidOpen] = useState<boolean>(false);
+  const [currentPage, setCurrentPage] = useState<Page>('workspace');
+  const [selectedTask, setSelectedTask] = useState<ActiveTask | null>(null);
+  const [executionModalTask, setExecutionModalTask] = useState<ActiveTask | null>(null);
+  const [chatOpen, setChatOpen] = useState(false);
+  const [justCompletedTask, setJustCompletedTask] = useState<ActiveTask | null>(null);
 
-  // Dispatch new task prompt
+  // When a task completes, show the completion summary
+  useEffect(() => {
+    const completedTask = tasks.find(t => t.status === 'completed');
+    if (completedTask && (!justCompletedTask || justCompletedTask.id !== completedTask.id)) {
+      setJustCompletedTask(completedTask);
+      // Close execution modal when task completes
+      if (executionModalTask?.id === completedTask.id) {
+        setTimeout(() => setExecutionModalTask(null), 1200);
+      }
+    }
+  }, [tasks]);
+
+  // When a task becomes active (routed/working), open the execution modal
+  useEffect(() => {
+    const activeTask = tasks.find(t => t.status === 'routed' || t.status === 'working');
+    if (activeTask && (!executionModalTask || executionModalTask.id !== activeTask.id || activeTask.status !== executionModalTask.status)) {
+      setExecutionModalTask(activeTask);
+    }
+  }, [tasks]);
+
   const handleDispatchTask = async (description: string) => {
+    setJustCompletedTask(null);
     const res = await apiCreateTask(description, useMock);
-    if (res && res.task_id) {
-      setSelectedTaskId(res.task_id);
+    if (res?.task_id) {
+      setSelectedTask(null);
     }
   };
 
-  // Trigger retry on blocked task
   const handleRetryTask = async (taskId: string, lastSeq: number) => {
     await apiRetryTask(taskId, lastSeq, useMock);
   };
 
+  const handleOpenExecution = (task: ActiveTask) => {
+    setExecutionModalTask(task);
+  };
+
   return (
-    <div className="min-h-screen bg-slate-950 text-gray-100 flex flex-col p-4 sm:p-6 max-w-[1600px] mx-auto">
-      {/* App Header */}
-      <Header
+    <div className="app-root">
+      <Navigation
         connectionStatus={connectionStatus}
-        onOpenMermaidModal={() => setIsMermaidOpen(true)}
+        useMock={useMock}
+        onToggleMock={setUseMock}
+        currentPage={currentPage}
+        onNavigate={setCurrentPage}
       />
 
-      {/* Main Content Layout */}
-      <main className="flex-1 flex flex-col gap-6">
-        {/* Task Dispatcher Form */}
-        <TaskInput
-          onSubmitTask={handleDispatchTask}
-          onClearTasks={clearAllTasks}
-          useMock={useMock}
-          onToggleMock={setUseMock}
-        />
+      <main className="app-main">
+        {currentPage === 'workspace' && (
+          <>
+            <DispatchSection
+              onDispatch={handleDispatchTask}
+              onClearTasks={clearAllTasks}
+              tasks={tasks}
+              useMock={useMock}
+            />
 
-        {/* Central Interactive Virtual Office Floor Canvas */}
-        <OfficeFloor
-          agentStates={agentStates}
-          tasks={tasks}
-          onRetryTask={handleRetryTask}
-          selectedTaskId={selectedTaskId}
-          onSelectTask={setSelectedTaskId}
-        />
+            <OfficeFloor
+              agentStates={agentStates}
+              tasks={tasks}
+              onRetryTask={handleRetryTask}
+              onOpenExecution={handleOpenExecution}
+              justCompletedTask={justCompletedTask}
+              onAskAssistant={() => setChatOpen(true)}
+            />
+          </>
+        )}
 
-        {/* Lower Details Row: Stage Inspector & Activity Feed */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <StatusPanel
+        {currentPage === 'history' && (
+          <HistoryPage
             tasks={tasks}
-            selectedTaskId={selectedTaskId}
-            onSelectTask={setSelectedTaskId}
+            activityLogs={activityLogs}
+            onOpenExecution={handleOpenExecution}
+            onNavigateToWorkspace={() => setCurrentPage('workspace')}
           />
-          <ActivityFeed
-            events={activityLogs}
-            onSelectTask={setSelectedTaskId}
-          />
-        </div>
+        )}
       </main>
 
-      {/* Mermaid Graph Topology Modal */}
-      <MermaidModal
-        isOpen={isMermaidOpen}
-        onClose={() => setIsMermaidOpen(false)}
-      />
+      {/* Execution modal */}
+      {executionModalTask && (
+        <ExecutionModal
+          task={executionModalTask}
+          allTasks={tasks}
+          onClose={() => setExecutionModalTask(null)}
+        />
+      )}
 
-      {/* Footer Branding */}
-      <footer className="mt-8 py-3 border-t border-white/5 text-center text-xs font-mono text-gray-500">
-        Interactive Multi-Agent Task Harness • Bit N Build Hackathon • FastAPI + LangGraph + React (Vite)
-      </footer>
+      {/* Chatbot */}
+      <ChatbotPanel
+        isOpen={chatOpen}
+        onToggle={() => setChatOpen(!chatOpen)}
+        tasks={tasks}
+        activityLogs={activityLogs}
+      />
     </div>
   );
 }
