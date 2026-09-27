@@ -49,14 +49,18 @@ class SearchAgent(BaseAgent):
                 ],
             }
 
-        # Handoff condition check: If results need to be emailed to stakeholders
-        email_keywords = ["email", "send", "notify", "forward"]
+        # Handoff condition check: If results need to be emailed or reported to stakeholders
+        email_keywords = [
+            "email", "send", "notify", "forward", "report", "brief", "share",
+            "vp", "executive", "lead", "manager", "stakeholder", "client", "team",
+            "present to", "deliver", "message", "write to", "inform", "reach out"
+        ]
         if any(kw in desc_lower for kw in email_keywords) and not any(
             h.get("agent") == "email_agent" for h in state.history
         ):
             handoff_reason = (
                 "Research synthesis complete; handing off to email_agent "
-                "to compose briefing and deliver findings to recipients."
+                "to compose briefing and deliver report to stakeholders."
             )
             return {
                 "agent_outcome": "HANDOFF",
@@ -68,6 +72,31 @@ class SearchAgent(BaseAgent):
                         "agent": self.agent_id,
                         "status": "HANDOFF",
                         "to_agent": "email_agent",
+                        "reason": handoff_reason,
+                        "research_data": f"Findings compiled for: {state.description}",
+                    }
+                ],
+            }
+
+        # Handoff condition check: If results need to be presented in a scheduled meeting
+        cal_keywords = ["calendar", "schedule", "meeting", "appointment", "book"]
+        if any(kw in desc_lower for kw in cal_keywords) and not any(
+            h.get("agent") == "calendar_agent" for h in state.history
+        ):
+            handoff_reason = (
+                "Research synthesis complete; handing off to calendar_agent "
+                "to schedule team meeting to review findings."
+            )
+            return {
+                "agent_outcome": "HANDOFF",
+                "handoff_to": "calendar_agent",
+                "handoff_reason": handoff_reason,
+                "history": state.history
+                + [
+                    {
+                        "agent": self.agent_id,
+                        "status": "HANDOFF",
+                        "to_agent": "calendar_agent",
                         "reason": handoff_reason,
                         "research_data": f"Findings compiled for: {state.description}",
                     }

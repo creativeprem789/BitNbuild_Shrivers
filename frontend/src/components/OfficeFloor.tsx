@@ -88,21 +88,80 @@ export const OfficeFloor: React.FC<OfficeFloorProps> = ({
               <stop offset="50%" stopColor="#8b5cf6" stopOpacity="0.4" />
               <stop offset="100%" stopColor="#10b981" stopOpacity="0.4" />
             </linearGradient>
+            <linearGradient id="handoffGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" stopColor="#ec4899" stopOpacity="0.8" />
+              <stop offset="50%" stopColor="#f59e0b" stopOpacity="0.8" />
+              <stop offset="100%" stopColor="#3b82f6" stopOpacity="0.8" />
+            </linearGradient>
+            <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+              <feGaussianBlur stdDeviation="3" result="blur" />
+              <feComposite in="SourceGraphic" in2="blur" operator="over" />
+            </filter>
           </defs>
 
           {/* Inbox -> Desk Connections */}
-          <path d="M 190 220 Q 220 120 260 120" stroke="url(#pathGradient)" strokeWidth="2" fill="none" className="dag-path-active" />
-          <path d="M 190 220 Q 220 420 260 420" stroke="url(#pathGradient)" strokeWidth="2" fill="none" className="dag-path-active" />
+          <path d="M 190 220 Q 220 120 260 120" stroke="url(#pathGradient)" strokeWidth={agentStates.email_agent !== 'idle' ? "3" : "2"} fill="none" className="dag-path-active" />
+          <path d="M 190 220 Q 220 420 260 420" stroke="url(#pathGradient)" strokeWidth={agentStates.search_agent !== 'idle' ? "3" : "2"} fill="none" className="dag-path-active" />
 
           {/* Handoff Wires Between Desks */}
-          <path d="M 500 120 L 580 120" stroke="rgba(255,255,255,0.15)" strokeWidth="2" strokeDasharray="4 4" fill="none" />
-          <path d="M 500 420 L 580 420" stroke="rgba(255,255,255,0.15)" strokeWidth="2" strokeDasharray="4 4" fill="none" />
-          <path d="M 380 230 L 380 350" stroke="rgba(255,255,255,0.15)" strokeWidth="2" strokeDasharray="4 4" fill="none" />
-          <path d="M 700 230 L 700 350" stroke="rgba(255,255,255,0.15)" strokeWidth="2" strokeDasharray="4 4" fill="none" />
+          {/* Top Row: Email <-> Calendar */}
+          <path 
+            d="M 500 120 L 580 120" 
+            stroke={agentStates.email_agent !== 'idle' && agentStates.calendar_agent !== 'idle' ? "url(#handoffGradient)" : "rgba(255,255,255,0.2)"} 
+            strokeWidth={agentStates.email_agent !== 'idle' && agentStates.calendar_agent !== 'idle' ? "3.5" : "2"} 
+            strokeDasharray="6 6" 
+            filter={agentStates.email_agent !== 'idle' && agentStates.calendar_agent !== 'idle' ? "url(#glow)" : undefined}
+            fill="none" 
+            className="dag-path-active"
+          />
+
+          {/* Bottom Row: Search <-> Custom */}
+          <path 
+            d="M 500 420 L 580 420" 
+            stroke={agentStates.search_agent !== 'idle' && agentStates.custom_agent !== 'idle' ? "url(#handoffGradient)" : "rgba(255,255,255,0.2)"} 
+            strokeWidth="2" 
+            strokeDasharray="6 6" 
+            fill="none" 
+            className="dag-path-active"
+          />
+
+          {/* Vertical Cross-Desk: Search (Bottom Left) <-> Email (Top Left) */}
+          <path 
+            d="M 380 230 L 380 350" 
+            stroke={(agentStates.search_agent !== 'idle' || agentStates.email_agent !== 'idle') ? "url(#handoffGradient)" : "rgba(255,255,255,0.2)"} 
+            strokeWidth={(agentStates.search_agent !== 'idle' || agentStates.email_agent !== 'idle') ? "3.5" : "2"} 
+            strokeDasharray="6 6" 
+            filter={(agentStates.search_agent !== 'idle' || agentStates.email_agent !== 'idle') ? "url(#glow)" : undefined}
+            fill="none" 
+            className="dag-path-active"
+          />
+
+          {/* Vertical Cross-Desk: Calendar (Top Right) <-> Custom (Bottom Right) */}
+          <path 
+            d="M 700 230 L 700 350" 
+            stroke="rgba(255,255,255,0.2)" 
+            strokeWidth="2" 
+            strokeDasharray="6 6" 
+            fill="none" 
+          />
 
           {/* Desks -> Done Vault Connections */}
-          <path d="M 820 120 Q 860 120 900 240" stroke="url(#pathGradient)" strokeWidth="2" fill="none" className="dag-path-active" />
-          <path d="M 820 420 Q 860 420 900 240" stroke="url(#pathGradient)" strokeWidth="2" fill="none" className="dag-path-active" />
+          <path 
+            d="M 820 120 Q 860 120 900 240" 
+            stroke={taskCounts.done > 0 ? "#10b981" : "url(#pathGradient)"} 
+            strokeWidth={taskCounts.done > 0 ? "3" : "2"} 
+            filter={taskCounts.done > 0 ? "url(#glow)" : undefined}
+            fill="none" 
+            className="dag-path-active" 
+          />
+          <path 
+            d="M 820 420 Q 860 420 900 240" 
+            stroke={taskCounts.done > 0 ? "#10b981" : "url(#pathGradient)"} 
+            strokeWidth={taskCounts.done > 0 ? "3" : "2"} 
+            filter={taskCounts.done > 0 ? "url(#glow)" : undefined}
+            fill="none" 
+            className="dag-path-active" 
+          />
         </svg>
 
         {/* 1. INBOX / RECEPTION ZONE */}
@@ -130,6 +189,7 @@ export const OfficeFloor: React.FC<OfficeFloorProps> = ({
             agentId="email_agent" 
             state={agentStates.email_agent} 
             activeTaskCount={taskCounts.email_agent}
+            currentTask={tasks.find(t => t.currentLocation === 'email_agent' && t.status !== 'completed')}
           />
         </div>
 
@@ -142,6 +202,7 @@ export const OfficeFloor: React.FC<OfficeFloorProps> = ({
             agentId="calendar_agent" 
             state={agentStates.calendar_agent} 
             activeTaskCount={taskCounts.calendar_agent}
+            currentTask={tasks.find(t => t.currentLocation === 'calendar_agent' && t.status !== 'completed')}
           />
         </div>
 
@@ -154,6 +215,7 @@ export const OfficeFloor: React.FC<OfficeFloorProps> = ({
             agentId="search_agent" 
             state={agentStates.search_agent} 
             activeTaskCount={taskCounts.search_agent}
+            currentTask={tasks.find(t => t.currentLocation === 'search_agent' && t.status !== 'completed')}
           />
         </div>
 
@@ -166,6 +228,7 @@ export const OfficeFloor: React.FC<OfficeFloorProps> = ({
             agentId="custom_agent" 
             state={agentStates.custom_agent} 
             activeTaskCount={taskCounts.custom_agent}
+            currentTask={tasks.find(t => t.currentLocation === 'custom_agent' && t.status !== 'completed')}
           />
         </div>
 

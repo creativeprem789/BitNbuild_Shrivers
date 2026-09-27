@@ -10,24 +10,24 @@ interface TaskInputProps {
 
 const PRESETS = [
   {
-    title: '📅 Calendar Booking',
+    title: '🔬 Research & Report to VP',
+    desc: 'Research the benchmarks and report to the VP',
+    tag: 'Search ➔ Email'
+  },
+  {
+    title: '📅 Research & Schedule Sync',
+    desc: 'Research competitor AI agent platforms and schedule a team review meeting',
+    tag: 'Search ➔ Calendar'
+  },
+  {
+    title: '📆 Direct Calendar Booking',
     desc: 'Schedule a quarterly product review with engineering tomorrow at 2 PM',
-    tag: 'Single-Agent'
+    tag: 'Calendar'
   },
   {
-    title: '🔍 Search → Email Handoff',
-    desc: 'Research latest benchmarks on LangGraph orchestration, and email the report to the VP',
-    tag: 'Multi-Agent'
-  },
-  {
-    title: '⚠️ Blocked Task Demo',
+    title: '⚠️ Blocked Task & Human Retry',
     desc: 'Book conference room Alpha (unscheduled date and time)',
-    tag: 'Blocked'
-  },
-  {
-    title: '⚡ Security Fallback',
-    desc: 'Audit system logs and trigger executive resolution for unknown error codes',
-    tag: 'Low Conf'
+    tag: 'Blocked / Retry'
   }
 ];
 
