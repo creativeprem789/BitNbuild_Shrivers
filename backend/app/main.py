@@ -76,10 +76,11 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# Permissive CORS for frontend virtual office
+# Permissive CORS for frontend virtual office (supports Vercel, localhost, and custom domains)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.CORS_ORIGINS if isinstance(settings.CORS_ORIGINS, list) else ["*"],
+    allow_origins=["*"],
+    allow_origin_regex=".*",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
