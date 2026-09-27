@@ -195,6 +195,10 @@ export function App() {
   // ── Render ──────────────────────────────────────────────────────
   return (
     <div className="app-root">
+      {/* Decorative Background 3D Elements */}
+      <div className="bg-decoration-1" />
+      <div className="bg-decoration-2" />
+
       <Navigation
         connectionStatus={connectionStatus}
         useMock={useMock}

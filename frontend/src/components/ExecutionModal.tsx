@@ -60,44 +60,7 @@ interface ConfirmConfig {
   noResult: string;           // text shown after NO
 }
 
-const AGENT_CONFIRMATIONS: Partial<Record<AgentId, ConfirmConfig>> = {
-  email_agent: {
-    afterStep: 1,             // after "Preparing recipient details"
-    intro: 'I found a better subject for this email:',
-    suggestion: '"Engineering Team Meeting — Tomorrow\'s Review"',
-    yesLabel: 'Yes, use this subject',
-    noLabel: 'No, keep original',
-    yesResult: '✓ Subject confirmed — using suggested subject.',
-    noResult: '↩ Keeping the original subject as provided.',
-  },
-  calendar_agent: {
-    afterStep: 2,             // after "Checking availability"
-    intro: 'I found a potential time conflict. Schedule at 3:00 PM instead?',
-    suggestion: '3:00 PM — No conflicts detected',
-    yesLabel: 'Yes, use 3:00 PM',
-    noLabel: 'No, keep original time',
-    yesResult: '✓ Confirmed — scheduling at 3:00 PM.',
-    noResult: '↩ Using the originally requested time.',
-  },
-  search_agent: {
-    afterStep: 2,             // after "Searching sources"
-    intro: 'I found two source sets. Use the broader, more comprehensive set?',
-    suggestion: 'Broader set — 8 sources, 47 results',
-    yesLabel: 'Yes, use broader sources',
-    noLabel: 'No, use focused set',
-    yesResult: '✓ Confirmed — using the broader source set.',
-    noResult: '↩ Using the focused source set.',
-  },
-  custom_agent: {
-    afterStep: 2,             // after "Identifying required action"
-    intro: 'I identified two possible resolution paths. Which should I use?',
-    suggestion: 'Path A — Direct resolution (recommended)',
-    yesLabel: 'Use Path A (faster)',
-    noLabel: 'Use Path B (thorough)',
-    yesResult: '✓ Confirmed — proceeding with Path A.',
-    noResult: '↩ Proceeding with Path B.',
-  },
-};
+const AGENT_CONFIRMATIONS: Partial<Record<AgentId, ConfirmConfig>> = {};
 
 const AGENT_ICON_CLASS: Record<AgentId, string> = {
   email_agent: 'icon-email', calendar_agent: 'icon-calendar',
@@ -162,7 +125,6 @@ export const ExecutionModal: React.FC<ExecutionModalProps> = ({
 
   // ── Step engine ──────────────────────────────────────────────────
   useEffect(() => {
-    clearTimer();
     if (allStepsDone) return;
 
     let targetCount = receivedSteps;
@@ -178,10 +140,13 @@ export const ExecutionModal: React.FC<ExecutionModalProps> = ({
 
     if (displayedStepCount < maxAllowed) {
       // Advance step by step visually so it looks nice even if backend is fast
-      timerRef.current = setTimeout(() => {
-        setDisplayedStepCount(c => c + 1);
-      }, 350); // fast visual catchup
-      return clearTimer;
+      if (!timerRef.current) {
+        timerRef.current = setTimeout(() => {
+          timerRef.current = null;
+          setDisplayedStepCount(c => c + 1);
+        }, 350); // fast visual catchup
+      }
+      return; // DO NOT clear timer on re-renders to prevent stalling!
     }
 
     // If we hit the barrier, pause for confirmation
@@ -192,11 +157,14 @@ export const ExecutionModal: React.FC<ExecutionModalProps> = ({
 
     // If we reached the end of the agent's work and no barrier is blocking us
     if (agentFinished && displayedStepCount >= totalSteps) {
-      timerRef.current = setTimeout(() => {
-        setAllStepsDone(true);
-        setTimeout(() => onStepsComplete?.(), 1000); // 1s pause before closing
-      }, 350);
-      return clearTimer;
+      if (!timerRef.current) {
+        timerRef.current = setTimeout(() => {
+          timerRef.current = null;
+          setAllStepsDone(true);
+          setTimeout(() => onStepsComplete?.(), 1000); // 1s pause before closing
+        }, 350);
+      }
+      return; // DO NOT clear timer on re-renders to prevent stalling!
     }
   }, [receivedSteps, agentFinished, displayedStepCount, waitingConfirm, confirmChoice, allStepsDone, conf, totalSteps]);
 

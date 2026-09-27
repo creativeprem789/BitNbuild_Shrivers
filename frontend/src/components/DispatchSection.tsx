@@ -9,26 +9,10 @@ interface DispatchSectionProps {
 }
 
 const PRESETS = [
-  {
-    label: '✉️ Send Email',
-    text: 'Send an email to the engineering team about tomorrow\'s product review meeting',
-    tag: 'Email'
-  },
-  {
-    label: '🔬 Research & Report',
-    text: 'Research the latest AI benchmark results and report the findings to the VP',
-    tag: 'Research → Email'
-  },
-  {
-    label: '📅 Schedule Meeting',
-    text: 'Schedule a quarterly review meeting with the product and engineering team for next Monday',
-    tag: 'Calendar'
-  },
-  {
-    label: '⚠️ Missing Info',
-    text: 'Book conference room Alpha for an unscheduled team meeting',
-    tag: 'Blocked'
-  },
+  { label: 'Write Email', text: 'Send an email to the engineering team about tomorrow\'s meeting' },
+  { label: 'Schedule Meeting', text: 'Schedule a quarterly review meeting with the team for next Monday' },
+  { label: 'Research Topic', text: 'Research the latest AI benchmark results and summarize' },
+  { label: 'Organize Files', text: 'Organize the latest downloads into appropriate folders' },
 ];
 
 export const DispatchSection: React.FC<DispatchSectionProps> = ({
@@ -62,18 +46,15 @@ export const DispatchSection: React.FC<DispatchSectionProps> = ({
 
   return (
     <section className="task-dispatch-section">
-      <div className="section-eyebrow">Give the office a task</div>
       <h1 className="section-title">What do you need done today?</h1>
-      <p className="section-subtitle">
-        Describe your task in plain language — the right specialist will handle it automatically.
-      </p>
 
       <form onSubmit={handleSubmit}>
         <div className="task-input-row">
+          <SearchIcon />
           <input
             className="task-input-field"
             type="text"
-            placeholder="Enter a task for the office…"
+            placeholder="Search"
             value={value}
             onChange={e => {
               setValue(e.target.value);
@@ -114,9 +95,7 @@ export const DispatchSection: React.FC<DispatchSectionProps> = ({
             >
               <div className="preset-pill-content">
                 <span className="preset-pill-label">{p.label}</span>
-                <span className="preset-tag">{p.tag}</span>
               </div>
-              {isSelected && <div className="preset-pill-subtitle">Selected Task</div>}
             </button>
           );
         })}
@@ -159,6 +138,13 @@ const SendIcon = () => (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
     <line x1="22" y1="2" x2="11" y2="13" />
     <polygon points="22 2 15 22 11 13 2 9 22 2" />
+  </svg>
+);
+
+const SearchIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#a09282" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginLeft: '4px' }}>
+    <circle cx="11" cy="11" r="8" />
+    <line x1="21" y1="21" x2="16.65" y2="16.65" />
   </svg>
 );
 

@@ -1,6 +1,7 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react';
 import type { ActiveTask, AgentId, AgentState } from '../types/task';
 import { AGENT_DEFINITIONS } from '../types/task';
+import { ReceptionIcon, EmailIcon, CalendarIcon, ResearchIcon, ExecutiveIcon, SubmitIcon } from './GlassIcons';
 
 // ─── Constants ────────────────────────────────────────────────────
 const TOKEN_WIDTH  = 200;   // px – width of the traveling task token card
@@ -54,6 +55,8 @@ export const OfficeFloor: React.FC<OfficeFloorProps> = ({
   justCompletedTask,
   onAskAssistant,
 }) => {
+  const [hoveredCard, setHoveredCard] = React.useState<string | null>(null);
+
   const containerRef   = useRef<HTMLDivElement>(null);
   const receptionRef   = useRef<HTMLDivElement>(null);
   const submitRef      = useRef<HTMLDivElement>(null);
@@ -146,15 +149,6 @@ export const OfficeFloor: React.FC<OfficeFloorProps> = ({
 
   return (
     <section className="office-floor-section">
-      {/* ── Section header ───────────────────────────────────────── */}
-      <div className="section-header">
-        <div>
-          <div className="section-eyebrow">Your virtual office</div>
-          <h2 className="section-header-title">Office Floor</h2>
-        </div>
-        <button className="btn-ghost" onClick={onAskAssistant}>💬 Ask Assistant</button>
-      </div>
-
       {/* ── Horizontal office row ────────────────────────────────── */}
       <div
         className="office-row-outer"
@@ -191,8 +185,12 @@ export const OfficeFloor: React.FC<OfficeFloorProps> = ({
           <div
             ref={receptionRef}
             className={`office-station station-reception ${isReceptionActive ? 'station-active' : ''}`}
+            onMouseEnter={() => setHoveredCard('reception')}
+            onMouseLeave={() => setHoveredCard(null)}
           >
-            <div className="station-icon icon-reception">🏛️</div>
+            <div className="station-icon icon-reception">
+              <ReceptionIcon isActive={isReceptionActive} isHovered={hoveredCard === 'reception'} />
+            </div>
             <div className="station-name">Reception</div>
             <div className="station-role">Task Intake</div>
             <div className="station-status-row">
@@ -231,10 +229,15 @@ export const OfficeFloor: React.FC<OfficeFloorProps> = ({
                     ${state === 'idle' && !wasVisited ? 'station-idle' : ''}
                   `}
                   onClick={() => agentTask && onOpenExecution(agentTask)}
+                  onMouseEnter={() => setHoveredCard(agentId)}
+                  onMouseLeave={() => setHoveredCard(null)}
                   style={{ cursor: agentTask ? 'pointer' : 'default' }}
                 >
                   <div className={`station-icon ${AGENT_ICON_CLASS[agentId]}`}>
-                    {def.avatar}
+                    {agentId === 'email_agent' && <EmailIcon isActive={isActive} isHovered={hoveredCard === agentId} />}
+                    {agentId === 'calendar_agent' && <CalendarIcon isActive={isActive} isHovered={hoveredCard === agentId} />}
+                    {agentId === 'search_agent' && <ResearchIcon isActive={isActive} isHovered={hoveredCard === agentId} />}
+                    {agentId === 'custom_agent' && <ExecutiveIcon isActive={isActive} isHovered={hoveredCard === agentId} />}
                   </div>
                   <div className="station-name">{def.name}</div>
                   <div className="station-role">
@@ -301,8 +304,12 @@ export const OfficeFloor: React.FC<OfficeFloorProps> = ({
           <div
             ref={submitRef}
             className={`office-station station-submit ${doneTasks.length > 0 ? 'station-done' : ''}`}
+            onMouseEnter={() => setHoveredCard('submit')}
+            onMouseLeave={() => setHoveredCard(null)}
           >
-            <div className="station-icon icon-submit">✅</div>
+            <div className="station-icon icon-submit">
+              <SubmitIcon isHovered={hoveredCard === 'submit'} />
+            </div>
             <div className="station-name">Submit Desk</div>
             <div className="station-role">Completed Tasks</div>
 

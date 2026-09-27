@@ -46,14 +46,16 @@ export function useTaskSocket(initialUseMock: boolean = true) {
     const taskId = event.task_id;
     const lastSeq = lastSeqMap.current.get(taskId) || 0;
 
-    // Sequence Check: Monotonic filter - discard if sequence_no <= last applied sequence_no
-    if (event.sequence_no <= lastSeq) {
-      console.warn(`[TaskHarness] Discarding duplicate/out-of-order event for ${taskId}. Received seq: ${event.sequence_no}, Last applied: ${lastSeq}`);
-      return;
+    // Sequence Check: Monotonic filter for DB-backed events
+    // (task.step events use timestamps for sequence_no, which break the DB sequence order)
+    if (event.event_type !== 'task.step') {
+      if (event.sequence_no <= lastSeq && event.sequence_no > 0) {
+        console.warn(`[TaskHarness] Discarding duplicate/out-of-order event for ${taskId}. Received seq: ${event.sequence_no}, Last applied: ${lastSeq}`);
+        return;
+      }
+      // Only track DB sequence numbers
+      lastSeqMap.current.set(taskId, event.sequence_no);
     }
-
-    // Update monotonic sequence number
-    lastSeqMap.current.set(taskId, event.sequence_no);
 
     // Append to Activity Logs
     setActivityLogs((prev) => [event, ...prev]);
