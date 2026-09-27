@@ -9,7 +9,15 @@ import type {
 import { mockEventSource } from '../services/mockEventSource';
 import { apiGetTaskDetails } from '../services/api';
 
-const WS_URL = import.meta.env.VITE_WS_URL || 'ws://localhost:8000/ws/tasks?subscribe=all';
+function getWsUrl(): string {
+  if (import.meta.env.VITE_WS_URL) return import.meta.env.VITE_WS_URL;
+  const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+  const protocol = apiUrl.startsWith('https') ? 'wss:' : 'ws:';
+  const host = apiUrl.replace(/^https?:\/\//, '').replace(/\/$/, '');
+  return `${protocol}//${host}/ws/tasks?subscribe=all`;
+}
+
+const WS_URL = getWsUrl();
 const ANIMATION_DELAY_MS = 800; // Time between processing queued events to allow token animations to play smoothly
 
 export type ConnectionState = 'connected' | 'connecting' | 'reconnecting' | 'mock_mode' | 'disconnected';
