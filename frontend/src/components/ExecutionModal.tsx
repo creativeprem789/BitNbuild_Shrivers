@@ -187,7 +187,8 @@ export const ExecutionModal: React.FC<ExecutionModalProps> = ({
     }
 
     // Advance normally
-    timerRef.current = setTimeout(() => setCurrentStep(s => s + 1), stepDuration);
+    const delay = (conf && currentStep === conf.afterStep && confirmChoice !== null) ? 600 : stepDuration;
+    timerRef.current = setTimeout(() => setCurrentStep(s => s + 1), delay);
     return clearTimer;
   }, [currentStep, waitingConfirm, confirmChoice, allStepsDone, isCompleted]);
 
@@ -198,8 +199,8 @@ export const ExecutionModal: React.FC<ExecutionModalProps> = ({
   const handleConfirm = (choice: 'yes' | 'no') => {
     setConfirmChoice(choice);
     setWaitingConfirm(false);
-    // Brief pause so user sees their choice, then resume
-    timerRef.current = setTimeout(() => setCurrentStep(s => s + 1), 600);
+    // The main useEffect will now naturally see waitingConfirm=false, confirmChoice!=null
+    // and set up a new timer to advance.
   };
 
   // ── Render helpers ───────────────────────────────────────────────
