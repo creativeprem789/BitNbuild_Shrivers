@@ -17,7 +17,9 @@ The system uses **LangGraph** to orchestrate agents, while a React-based virtual
 Instead of manually deciding which service should handle a task, the system automatically classifies the request, routes it to the appropriate agent, executes the workflow, and returns the result.
 
 ---
-WhatsApp Image 2026-09-27 at 13.38.13.jpeg
+
+
+
 
 ## 🧠 AI Agents
 
@@ -109,9 +111,11 @@ WhatsApp Image 2026-09-27 at 13.38.13.jpeg
 
 ### Virtual Office
 
-Add your main virtual office screenshot here:
 
-![Virtual Office](docs/images/virtual-office.png)
+<img width="1600" height="816" alt="WhatsApp Image 2026-09-27 at 13 38 14" src="https://github.com/user-attachments/assets/6c835d57-e888-4562-b276-568b19d57c44" />
+
+#Live Demo
+<img width="1600" height="816" alt="WhatsApp Image 2026-09-27 at 13 38 13" src="https://github.com/user-attachments/assets/41d9c68d-7d96-4e0c-ae6e-c57c472101f6" />
 
 
 ## 🛠️ Tech Stack
