@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import { useRef } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { Environment, Float, ContactShadows } from '@react-three/drei';
 import * as THREE from 'three';
@@ -49,7 +49,7 @@ const BaseScene = ({ children, isHovered, color }: any) => {
   );
 };
 
-export const ReceptionIcon = ({ isActive, isHovered }: any) => (
+export const ReceptionIcon = ({ isHovered }: any) => (
   <Canvas camera={{ position: [0, 0, 6.5], fov: 45 }}>
     <BaseScene isHovered={isHovered} color="#34d399">
       {/* Tray base */}
@@ -79,7 +79,7 @@ export const ReceptionIcon = ({ isActive, isHovered }: any) => (
   </Canvas>
 );
 
-export const EmailIcon = ({ isActive, isHovered }: any) => {
+export const EmailIcon = ({ isHovered }: any) => {
   const OrbitingCard = ({ offset, speed }: any) => {
     const ref = useRef<THREE.Mesh>(null!);
     useFrame((state) => {
@@ -117,7 +117,7 @@ export const EmailIcon = ({ isActive, isHovered }: any) => {
   );
 };
 
-export const CalendarIcon = ({ isActive, isHovered }: any) => (
+export const CalendarIcon = ({ isHovered }: any) => (
   <Canvas camera={{ position: [0, 0, 6.5], fov: 45 }}>
     <BaseScene isHovered={isHovered} color="#60a5fa">
       {/* Calendar body */}
@@ -151,7 +151,7 @@ export const CalendarIcon = ({ isActive, isHovered }: any) => (
   </Canvas>
 );
 
-export const ResearchIcon = ({ isActive, isHovered }: any) => (
+export const ResearchIcon = ({ isHovered }: any) => (
   <Canvas camera={{ position: [0, 0, 6.5], fov: 45 }}>
     <BaseScene isHovered={isHovered} color="#22d3ee">
       {/* Document */}
@@ -191,7 +191,7 @@ export const ResearchIcon = ({ isActive, isHovered }: any) => (
   </Canvas>
 );
 
-export const ExecutiveIcon = ({ isActive, isHovered }: any) => {
+export const ExecutiveIcon = ({ isHovered }: any) => {
   const CoreNode = ({ offset }: any) => {
     const ref = useRef<THREE.Mesh>(null!);
     useFrame((state) => {
@@ -236,7 +236,7 @@ export const ExecutiveIcon = ({ isActive, isHovered }: any) => {
   );
 };
 
-export const SubmitIcon = ({ isActive, isHovered }: any) => (
+export const SubmitIcon = ({ isHovered }: any) => (
   <Canvas camera={{ position: [0, 0, 6.5], fov: 45 }}>
     <BaseScene isHovered={isHovered} color="#10b981">
       {/* Tray base */}

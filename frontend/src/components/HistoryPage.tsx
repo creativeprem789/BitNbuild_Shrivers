@@ -59,8 +59,8 @@ function getAgentIconClass(task: ActiveTask): string {
 
 export const HistoryPage: React.FC<HistoryPageProps> = ({
   tasks,
-  activityLogs,
-  onOpenExecution,
+  activityLogs: _activityLogs,
+  onOpenExecution: _onOpenExecution,
   onNavigateToWorkspace
 }) => {
   const [replayTask, setReplayTask] = useState<ActiveTask | null>(null);
@@ -149,8 +149,11 @@ export const HistoryPage: React.FC<HistoryPageProps> = ({
       {/* Replay modal */}
       {replayTask && (
         <ExecutionModal
-          task={replayTask}
-          allTasks={tasks}
+          agentId={replayTask.currentAgentId ?? 'custom_agent'}
+          taskDescription={replayTask.description}
+          taskId={replayTask.id}
+          tasks={tasks}
+          isClosing={false}
           onClose={() => setReplayTask(null)}
         />
       )}

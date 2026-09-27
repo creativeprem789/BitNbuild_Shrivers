@@ -25,8 +25,6 @@ export const DispatchSection: React.FC<DispatchSectionProps> = ({
   const [isDispatching, setIsDispatching] = useState(false);
   const [selectedPreset, setSelectedPreset] = useState<string | null>(null);
 
-  const hasActiveTasks = tasks.some(t => t.status !== 'completed');
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const trimmed = value.trim();

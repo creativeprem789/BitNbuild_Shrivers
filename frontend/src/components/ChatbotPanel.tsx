@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import type { ActiveTask, TaskEvent, AgentId } from '../types/task';
+import type { ActiveTask, TaskEvent } from '../types/task';
 import { AGENT_DEFINITIONS } from '../types/task';
 
 interface ChatbotPanelProps {
@@ -35,7 +35,7 @@ function buildAgentJourney(events: TaskEvent[]): string {
 function generateAssistantResponse(
   userMessage: string,
   tasks: ActiveTask[],
-  activityLogs: TaskEvent[]
+  _activityLogs: TaskEvent[]
 ): string {
   const lowerMsg = userMessage.toLowerCase();
   const recentTask = tasks[tasks.length - 1];

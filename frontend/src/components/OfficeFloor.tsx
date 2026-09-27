@@ -5,7 +5,6 @@ import { ReceptionIcon, EmailIcon, CalendarIcon, ResearchIcon, ExecutiveIcon, Su
 
 // ─── Constants ────────────────────────────────────────────────────
 const TOKEN_WIDTH  = 200;   // px – width of the traveling task token card
-const TOKEN_HEIGHT = 52;    // px – height of the token card
 const TRAVEL_MS    = 1400;  // token travel animation duration (ms)
 
 // Agents shown left-to-right in the office row
@@ -65,7 +64,7 @@ export const OfficeFloor: React.FC<OfficeFloorProps> = ({
   // Token animation state
   const [tokenLeft, setTokenLeft]         = useState<number>(-9999);
   const [tokenVisible, setTokenVisible]   = useState(false);
-  const [tokenDesc, setTokenDesc]         = useState('');
+  const [_tokenDesc, setTokenDesc]        = useState('');
   const [tokenAnimation, setTokenAnimation] = useState(false);
 
   // Track which agents have been visited (for ✓ completed state)

@@ -24,8 +24,6 @@ export const TaskToken: React.FC<TaskTokenProps> = ({
   const computedX = targetCoords.x + stackIndex * 18;
   const computedY = targetCoords.y + stackIndex * 22;
 
-  const shortId = task.id.substring(0, 6);
-
   const getBorderColor = () => {
     if (task.status === 'blocked') return '#ef4444';
     if (task.status === 'completed') return '#10b981';

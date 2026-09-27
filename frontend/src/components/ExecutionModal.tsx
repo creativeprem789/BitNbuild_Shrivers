@@ -3,13 +3,6 @@ import type { ActiveTask, AgentId, TaskEvent } from '../types/task';
 import { AGENT_DEFINITIONS } from '../types/task';
 
 // ─────────────────────────────────────────────────────────────────
-// Timing constants
-// ─────────────────────────────────────────────────────────────────
-const STEP_MS      = 2200;   // time each step is "active" (normal)
-const FAST_STEP_MS = 350;    // fast-forward when task already completed
-const DONE_PAUSE   = 1000;   // pause after last step before signalling done
-
-// ─────────────────────────────────────────────────────────────────
 // Per-agent steps
 // ─────────────────────────────────────────────────────────────────
 const AGENT_STEPS: Record<AgentId, Array<{ label: string; detail: string }>> = {
@@ -241,7 +234,6 @@ export const ExecutionModal: React.FC<ExecutionModalProps> = ({
             // Determine individual step state
             const isDone    = allStepsDone || i < displayStep;
             const isActive  = !allStepsDone && i === displayStep;
-            const isPending = !allStepsDone && !isDone && !isActive;
             const status    = isDone ? 'done' : isActive ? 'active' : 'pending';
 
             return (
