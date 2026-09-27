@@ -76,11 +76,13 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# Permissive CORS for frontend virtual office (supports Vercel, localhost, and custom domains)
+raw_origins = settings.CORS_ORIGINS if isinstance(settings.CORS_ORIGINS, list) else [settings.CORS_ORIGINS]
+exact_origins = [o for o in raw_origins if o != "*"]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_origin_regex=".*",
+    allow_origins=exact_origins,
+    allow_origin_regex=".*" if not exact_origins else None,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
