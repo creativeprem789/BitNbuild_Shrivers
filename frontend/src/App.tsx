@@ -12,6 +12,15 @@ import './index.css';
 
 type Page = 'workspace' | 'history';
 
+function buildJourneyFromEvents(events: any[]): AgentId[] {
+  const agents: AgentId[] = [];
+  for (const e of events) {
+    if (e.event_type === 'task.routed' && !agents.includes(e.agent_id)) agents.push(e.agent_id);
+    if (e.event_type === 'task.handoff' && !agents.includes(e.to_agent)) agents.push(e.to_agent);
+  }
+  return agents;
+}
+
 export interface ExecSession {
   sessionKey: string;
   taskId: string;
@@ -41,6 +50,7 @@ export function App() {
   const [chatOpen,           setChatOpen]          = useState(false);
   const [justCompletedTask,  setJustCompletedTask] = useState<ActiveTask | null>(null);
   const [execSession,        setExecSession]       = useState<ExecSession | null>(null);
+  const [playedAgents,       setPlayedAgents]      = useState<Set<string>>(new Set());
 
   const lastShownKeyRef   = useRef('');
   const isTransitioningRef = useRef(false);
@@ -73,35 +83,60 @@ export function App() {
 
   // ── React to task state changes ─────────────────────────────────
   useEffect(() => {
-    // Completed task bookkeeping
-    const completedTask = tasks.find(t => t.status === 'completed');
-    if (completedTask && (!justCompletedTask || justCompletedTask.id !== completedTask.id)) {
-      setJustCompletedTask(completedTask);
+    // We want to find the first unplayed agent in the most recently active task.
+    // Since tasks is ordered or we just care about tasks that have unplayed journey steps:
+    let nextPlayable: { task: ActiveTask; agentId: AgentId } | null = null;
+
+    // Search backwards to prioritize the newest tasks
+    for (let i = tasks.length - 1; i >= 0; i--) {
+      const t = tasks[i];
+      const journey = buildJourneyFromEvents(t.events);
+      for (const aid of journey) {
+        const key = `${t.id}-${aid}`;
+        if (!playedAgents.has(key)) {
+          nextPlayable = { task: t, agentId: aid };
+          break;
+        }
+      }
+      if (nextPlayable) break; // found the next thing to play
     }
 
-    const activeTask = tasks.find(
-      t => (t.status === 'routed' || t.status === 'working') && t.currentAgentId
-    );
+    // Completed task bookkeeping (visual completion)
+    // A task is visually completed when the backend says it's completed AND we played all its agents
+    const visuallyCompleted = tasks.find(t => {
+      if (t.status !== 'completed') return false;
+      const journey = buildJourneyFromEvents(t.events);
+      return journey.every(aid => playedAgents.has(`${t.id}-${aid}`));
+    });
 
-    if (!activeTask?.currentAgentId) return;
+    if (visuallyCompleted && (!justCompletedTask || justCompletedTask.id !== visuallyCompleted.id)) {
+      setJustCompletedTask(visuallyCompleted);
+    }
 
-    const newKey = `${activeTask.id}-${activeTask.currentAgentId}`;
+    if (!nextPlayable) return;
+
+    const newKey = `${nextPlayable.task.id}-${nextPlayable.agentId}`;
     if (newKey === lastShownKeyRef.current) return;
     if (isTransitioningRef.current) return;
+
+    // Check if we are already showing this agent
+    if (execSession && execSession.sessionKey.startsWith(newKey) && !execSession.isClosing) {
+      return; 
+    }
 
     lastShownKeyRef.current   = newKey;
     isTransitioningRef.current = true;
 
     if (execSession && !execSession.isClosing) {
       // Agent changed → close existing panel, then open new after gap
-      closePanel(() => openPanel(activeTask, activeTask.currentAgentId!, NEXT_OPEN_DELAY));
+      closePanel(() => openPanel(nextPlayable!.task, nextPlayable!.agentId, NEXT_OPEN_DELAY));
     } else {
       // No panel open → wait for token to travel then open
-      openPanel(activeTask, activeTask.currentAgentId!, FIRST_OPEN_DELAY + TOKEN_TRAVEL_MS);
+      openPanel(nextPlayable.task, nextPlayable.agentId, FIRST_OPEN_DELAY + TOKEN_TRAVEL_MS);
       setTimeout(() => { isTransitioningRef.current = false; }, FIRST_OPEN_DELAY + TOKEN_TRAVEL_MS + 100);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tasks]);
+  }, [tasks, playedAgents]);
 
   // Blocked task → close panel so user can see the desk
   useEffect(() => {
@@ -122,6 +157,12 @@ export function App() {
     stepsDoneKeyRef.current = key;
 
     if (!execSession.isClosing) {
+      // Mark this agent as played so the next one can open!
+      setPlayedAgents(prev => {
+        const next = new Set(prev);
+        next.add(`${execSession.taskId}-${execSession.agentId}`);
+        return next;
+      });
       closePanel();
     }
   }, [execSession, closePanel]);
@@ -131,6 +172,8 @@ export function App() {
     setJustCompletedTask(null);
     lastShownKeyRef.current   = '';
     stepsDoneKeyRef.current   = '';
+    // We intentionally don't clear playedAgents here so history remains consistent,
+    // unless we strictly want to reset the UI state. We'll leave it to just accumulate.
     await apiCreateTask(description, useMock);
   };
 
