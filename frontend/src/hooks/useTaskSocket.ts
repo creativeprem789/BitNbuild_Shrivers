@@ -11,7 +11,7 @@ import { apiGetTaskDetails } from '../services/api';
 
 function getWsUrl(): string {
   if (import.meta.env.VITE_WS_URL) return import.meta.env.VITE_WS_URL;
-  const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+  const apiUrl = import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
   const protocol = apiUrl.startsWith('https') ? 'wss:' : 'ws:';
   const host = apiUrl.replace(/^https?:\/\//, '').replace(/\/$/, '');
   return `${protocol}//${host}/ws/tasks?subscribe=all`;
