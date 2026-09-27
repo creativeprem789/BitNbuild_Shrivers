@@ -7,7 +7,8 @@ export type TaskEventType =
   | 'task.routed'
   | 'task.handoff'
   | 'task.blocked'
-  | 'task.completed';
+  | 'task.completed'
+  | 'task.step';
 
 export interface TaskCreatedEvent {
   event_type: 'task.created';
@@ -54,12 +55,23 @@ export interface TaskCompletedEvent {
   timestamp?: string;
 }
 
+export interface TaskStepEvent {
+  event_type: 'task.step';
+  task_id: string;
+  agent_id: AgentId;
+  label: string;
+  detail: string;
+  sequence_no: number;
+  timestamp?: string;
+}
+
 export type TaskEvent = 
   | TaskCreatedEvent
   | TaskRoutedEvent
   | TaskHandoffEvent
   | TaskBlockedEvent
-  | TaskCompletedEvent;
+  | TaskCompletedEvent
+  | TaskStepEvent;
 
 export type TaskLocation = 'inbox' | AgentId | 'done';
 

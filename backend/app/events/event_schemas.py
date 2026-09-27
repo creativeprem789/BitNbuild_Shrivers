@@ -20,6 +20,7 @@ class EventType(str, Enum):
     TASK_HANDOFF = "task.handoff"
     TASK_BLOCKED = "task.blocked"
     TASK_COMPLETED = "task.completed"
+    TASK_STEP = "task.step"
 
 
 class BaseTaskEvent(BaseModel):
@@ -63,10 +64,18 @@ class TaskCompletedPayload(BaseTaskEvent):
     duration_ms: int
 
 
+class TaskStepPayload(BaseTaskEvent):
+    event_type: str = EventType.TASK_STEP.value
+    agent_id: str
+    label: str
+    detail: str
+
+
 TaskEventPayload = Union[
     TaskCreatedPayload,
     TaskRoutedPayload,
     TaskHandoffPayload,
     TaskBlockedPayload,
     TaskCompletedPayload,
+    TaskStepPayload,
 ]

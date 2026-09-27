@@ -28,8 +28,23 @@ class SearchAgent(BaseAgent):
             extra={"task_id": state.task_id},
         )
 
-        # Realistic execution delay
-        await asyncio.sleep(1.2)
+        await self.emit_step(state.task_id, "Understanding the research request", "Breaking down exactly what information is needed")
+        await asyncio.sleep(0.8)
+
+        await self.emit_step(state.task_id, "Identifying relevant information", "Determining the best sources and search strategies")
+        await asyncio.sleep(0.8)
+
+        await self.emit_step(state.task_id, "Searching available sources", "Querying databases, web and knowledge repositories")
+        await asyncio.sleep(0.8)
+
+        await self.emit_step(state.task_id, "Comparing useful findings", "Evaluating quality and relevance of discovered data")
+        await asyncio.sleep(0.8)
+
+        await self.emit_step(state.task_id, "Organising the information", "Structuring the key facts and insights clearly")
+        await asyncio.sleep(0.8)
+
+        await self.emit_step(state.task_id, "Preparing the result", "Compiling a clear, actionable summary or report")
+        await asyncio.sleep(0.8)
 
         desc_lower = state.description.lower()
 

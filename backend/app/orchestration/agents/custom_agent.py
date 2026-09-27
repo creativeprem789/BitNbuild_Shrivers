@@ -28,8 +28,23 @@ class CustomAgent(BaseAgent):
             extra={"task_id": state.task_id},
         )
 
-        # Realistic execution delay
-        await asyncio.sleep(1.2)
+        await self.emit_step(state.task_id, "Understanding the request", "Assessing what is needed and the best approach")
+        await asyncio.sleep(0.8)
+        
+        await self.emit_step(state.task_id, "Reviewing the available information", "Checking context, prior steps and relevant data")
+        await asyncio.sleep(0.8)
+
+        await self.emit_step(state.task_id, "Identifying the required action", "Determining the exact steps needed to resolve this")
+        await asyncio.sleep(0.8)
+
+        await self.emit_step(state.task_id, "Resolving the request", "Executing the required steps with available tools")
+        await asyncio.sleep(0.8)
+
+        await self.emit_step(state.task_id, "Verifying the result", "Checking the outcome meets the original requirement")
+        await asyncio.sleep(0.8)
+
+        await self.emit_step(state.task_id, "Preparing the final response", "Wrapping up and delivering a clear result")
+        await asyncio.sleep(0.8)
 
         desc_lower = state.description.lower()
 

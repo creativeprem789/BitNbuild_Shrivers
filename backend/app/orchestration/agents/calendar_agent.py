@@ -30,6 +30,18 @@ class CalendarAgent(BaseAgent):
             extra={"task_id": state.task_id},
         )
 
+        await self.emit_step(state.task_id, "Understanding the scheduling request", "Identifying attendees, purpose and time preferences")
+        await asyncio.sleep(0.8)
+        
+        await self.emit_step(state.task_id, "Checking the required date and time", "Parsing dates, durations and time zone details")
+        await asyncio.sleep(0.8)
+        
+        await self.emit_step(state.task_id, "Checking calendar availability", "Finding free slots that work for all participants")
+        await asyncio.sleep(0.8)
+        
+        await self.emit_step(state.task_id, "Preparing the event details", "Setting up title, location, agenda and attendee list")
+        await asyncio.sleep(0.8)
+
         desc_lower = state.description.lower()
 
         # Check for missing time or blocked condition
@@ -70,6 +82,7 @@ class CalendarAgent(BaseAgent):
         status_code = 200
 
         try:
+            await self.emit_step(state.task_id, "Confirming the schedule", "Verifying no conflicts exist before committing via API")
             async with httpx.AsyncClient(timeout=10.0) as client:
                 headers = {
                     "Authorization": f"Bearer {settings.CALENDAR_API_KEY}",
@@ -98,6 +111,9 @@ class CalendarAgent(BaseAgent):
                 "target_url": target_url,
                 "error": str(e),
             }
+
+        await self.emit_step(state.task_id, "Adding the event", "Creating the calendar entry and sending invitations")
+        await asyncio.sleep(0.8)
 
         if "research" in desc_lower and not any(
             h.get("agent") == "search_agent" for h in state.history

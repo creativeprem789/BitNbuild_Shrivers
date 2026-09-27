@@ -121,6 +121,11 @@ export function useTaskSocket(initialUseMock: boolean = true) {
           updatedTask.durationMs = event.duration_ms;
           break;
         }
+
+        case 'task.step': {
+          // just append the event, no state change
+          break;
+        }
       }
 
       nextMap.set(taskId, updatedTask);

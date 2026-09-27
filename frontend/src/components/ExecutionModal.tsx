@@ -135,62 +135,70 @@ export const ExecutionModal: React.FC<ExecutionModalProps> = ({
   const conf       = AGENT_CONFIRMATIONS[agentId] ?? null;
 
   // ── Core state ──────────────────────────────────────────────────
-  // currentStep: -1=not started, 0..N-1=current step index
-  const [currentStep,       setCurrentStep]       = useState(-1);
   const [waitingConfirm,    setWaitingConfirm]    = useState(false);
   const [confirmChoice,     setConfirmChoice]     = useState<'yes' | 'no' | null>(null);
   const [allStepsDone,      setAllStepsDone]      = useState(false);
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [displayedStepCount, setDisplayedStepCount] = useState(0);
 
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const clearTimer = () => {
     if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
   };
 
   // Live task info
   const liveTask       = tasks.find(t => t.id === taskId);
-  const isCompleted    = liveTask?.status === 'completed';
   const isBlocked      = liveTask?.status === 'blocked';
   const journey        = liveTask ? buildJourneyFromEvents(liveTask.events) : [];
 
-  // Speed multiplier: fast-forward if backend already completed
-  const stepDuration = isCompleted ? FAST_STEP_MS : STEP_MS;
-
-  // ── Entry: start steps after modal has animated in ───────────────
-  useEffect(() => {
-    timerRef.current = setTimeout(() => setCurrentStep(0), 500);
-    return clearTimer;
-  }, []);
+  // Count how many task.step events we received for this agent
+  const receivedSteps = liveTask?.events.filter(e => e.event_type === 'task.step' && e.agent_id === agentId).length || 0;
+  
+  // Has the agent fully completed its work (handoff, complete, or blocked)?
+  const agentFinished = liveTask?.events.some(e => 
+    (e.event_type === 'task.handoff' && e.from_agent === agentId) ||
+    e.event_type === 'task.completed' ||
+    (e.event_type === 'task.blocked' && e.agent_id === agentId)
+  ) || false;
 
   // ── Step engine ──────────────────────────────────────────────────
   useEffect(() => {
     clearTimer();
-    if (currentStep < 0)  return;
-    if (waitingConfirm)   return;   // paused — waiting for user
-    if (allStepsDone)     return;
+    if (allStepsDone) return;
 
-    // Last step: signal completion after pause
-    if (currentStep >= totalSteps - 1) {
+    let targetCount = receivedSteps;
+    if (agentFinished) {
+      targetCount = totalSteps; // Ensure it reaches the end if finished
+    }
+
+    // Determine the barrier (the step after which we must pause)
+    const barrierStep = (conf && confirmChoice === null) ? conf.afterStep + 1 : totalSteps + 1;
+
+    // We can only display up to the target, bounded by the barrier
+    const maxAllowed = Math.min(targetCount, barrierStep);
+
+    if (displayedStepCount < maxAllowed) {
+      // Advance step by step visually so it looks nice even if backend is fast
+      timerRef.current = setTimeout(() => {
+        setDisplayedStepCount(c => c + 1);
+      }, 350); // fast visual catchup
+      return clearTimer;
+    }
+
+    // If we hit the barrier, pause for confirmation
+    if (conf && confirmChoice === null && displayedStepCount === barrierStep) {
+      setWaitingConfirm(true);
+      return;
+    }
+
+    // If we reached the end of the agent's work and no barrier is blocking us
+    if (agentFinished && displayedStepCount >= totalSteps) {
       timerRef.current = setTimeout(() => {
         setAllStepsDone(true);
-        // Give a beat to show the final ✓, then tell parent to close
-        setTimeout(() => onStepsComplete?.(), DONE_PAUSE);
-      }, stepDuration);
+        setTimeout(() => onStepsComplete?.(), 1000); // 1s pause before closing
+      }, 350);
       return clearTimer;
     }
-
-    // Show confirmation pause? (only in non-fast mode)
-    const nextStep = currentStep + 1;
-    if (!isCompleted && conf && currentStep === conf.afterStep && confirmChoice === null) {
-      // Pause after current step finishes display, then wait for user
-      timerRef.current = setTimeout(() => setWaitingConfirm(true), stepDuration);
-      return clearTimer;
-    }
-
-    // Advance normally
-    const delay = (conf && currentStep === conf.afterStep && confirmChoice !== null) ? 600 : stepDuration;
-    timerRef.current = setTimeout(() => setCurrentStep(s => s + 1), delay);
-    return clearTimer;
-  }, [currentStep, waitingConfirm, confirmChoice, allStepsDone, isCompleted]);
+  }, [receivedSteps, agentFinished, displayedStepCount, waitingConfirm, confirmChoice, allStepsDone, conf, totalSteps]);
 
   // Cleanup on unmount
   useEffect(() => clearTimer, []);
@@ -204,15 +212,15 @@ export const ExecutionModal: React.FC<ExecutionModalProps> = ({
   };
 
   // ── Render helpers ───────────────────────────────────────────────
-  // displayStep: the step that is currently "active" (showing ●)
-  const displayStep = Math.max(currentStep, 0);
+  // current active index is displayedStepCount - 1 (since 0 count means nothing active)
+  const displayStep = Math.min(Math.max(displayedStepCount - 1, 0), totalSteps - 1);
   // Progress: count done steps
-  const doneCount   = allStepsDone ? totalSteps : displayStep;
+  const doneCount   = allStepsDone ? totalSteps : displayedStepCount;
   const progressPct = (doneCount / totalSteps) * 100;
 
   const headerStatus = allStepsDone
     ? '✓ All done — closing'
-    : isCompleted
+    : (agentFinished && displayedStepCount >= totalSteps)
     ? '✓ Work complete'
     : isBlocked
     ? '⚠ Needs your attention'

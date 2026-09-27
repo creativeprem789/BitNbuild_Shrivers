@@ -30,8 +30,23 @@ class EmailAgent(BaseAgent):
             extra={"task_id": state.task_id},
         )
 
-        # Realistic execution delay to simulate cognitive processing
-        await asyncio.sleep(1.2)
+        await self.emit_step(state.task_id, "Understanding the email request", "Reading what you need and identifying who to contact")
+        await asyncio.sleep(0.8)
+        
+        await self.emit_step(state.task_id, "Preparing the recipient details", "Gathering email addresses and contact information")
+        await asyncio.sleep(0.8)
+        
+        await self.emit_step(state.task_id, "Choosing an appropriate subject", "Selecting a clear, relevant subject line")
+        await asyncio.sleep(0.8)
+        
+        await self.emit_step(state.task_id, "Writing the email content", "Composing the body text with the right tone and detail")
+        await asyncio.sleep(0.8)
+        
+        await self.emit_step(state.task_id, "Reviewing the message", "Checking for accuracy, tone and completeness")
+        await asyncio.sleep(0.8)
+        
+        await self.emit_step(state.task_id, "Sending the email", "Delivering the message to the intended recipient(s)")
+        await asyncio.sleep(0.8)
 
         desc_lower = state.description.lower()
 

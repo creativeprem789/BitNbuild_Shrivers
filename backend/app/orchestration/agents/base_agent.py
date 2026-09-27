@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 from typing import Any, Dict
+import time
 from app.orchestration.state import TaskState
 
 
@@ -16,6 +17,18 @@ class BaseAgent(ABC):
         self.agent_id = agent_id
         self.display_name = display_name
         self.role = role
+
+    async def emit_step(self, task_id: str, label: str, detail: str) -> None:
+        from app.events.event_bus import event_bus
+        payload = {
+            "event_type": "task.step",
+            "task_id": task_id,
+            "agent_id": self.agent_id,
+            "label": label,
+            "detail": detail,
+            "sequence_no": int(time.time() * 1000) # Use timestamp for sequence to ensure monotonic
+        }
+        await event_bus.publish_event(task_id, payload)
 
     @abstractmethod
     async def process(self, state: TaskState) -> Dict[str, Any]:
