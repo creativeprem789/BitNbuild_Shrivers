@@ -39,6 +39,7 @@ export const DispatchSection: React.FC<DispatchSectionProps> = ({
 }) => {
   const [value, setValue] = useState('');
   const [isDispatching, setIsDispatching] = useState(false);
+  const [selectedPreset, setSelectedPreset] = useState<string | null>(null);
 
   const hasActiveTasks = tasks.some(t => t.status !== 'completed');
 
@@ -50,11 +51,13 @@ export const DispatchSection: React.FC<DispatchSectionProps> = ({
     setIsDispatching(true);
     await onDispatch(trimmed);
     setValue('');
+    setSelectedPreset(null);
     setIsDispatching(false);
   };
 
-  const handlePreset = (text: string) => {
+  const handlePreset = (text: string, label: string) => {
     setValue(text);
+    setSelectedPreset(label);
   };
 
   return (
@@ -72,7 +75,10 @@ export const DispatchSection: React.FC<DispatchSectionProps> = ({
             type="text"
             placeholder="Enter a task for the office…"
             value={value}
-            onChange={e => setValue(e.target.value)}
+            onChange={e => {
+              setValue(e.target.value);
+              setSelectedPreset(null); // Clear selection on manual edit
+            }}
             autoComplete="off"
             disabled={isDispatching}
           />
@@ -97,17 +103,23 @@ export const DispatchSection: React.FC<DispatchSectionProps> = ({
       </form>
 
       <div className="task-presets">
-        {PRESETS.map((p) => (
-          <button
-            key={p.label}
-            className="preset-pill"
-            onClick={() => handlePreset(p.text)}
-            type="button"
-          >
-            {p.label}
-            <span className="preset-tag">{p.tag}</span>
-          </button>
-        ))}
+        {PRESETS.map((p) => {
+          const isSelected = selectedPreset === p.label;
+          return (
+            <button
+              key={p.label}
+              className={`preset-pill ${isSelected ? 'preset-pill-selected' : ''}`}
+              onClick={() => handlePreset(p.text, p.label)}
+              type="button"
+            >
+              <div className="preset-pill-content">
+                <span className="preset-pill-label">{p.label}</span>
+                <span className="preset-tag">{p.tag}</span>
+              </div>
+              {isSelected && <div className="preset-pill-subtitle">Selected Task</div>}
+            </button>
+          );
+        })}
 
         {tasks.length > 0 && (
           <button
@@ -116,7 +128,9 @@ export const DispatchSection: React.FC<DispatchSectionProps> = ({
             type="button"
             style={{ marginLeft: 'auto', borderColor: 'var(--border-strong)', color: 'var(--text-muted)' }}
           >
-            🗑 Clear All
+            <div className="preset-pill-content">
+              <span>🗑 Clear All</span>
+            </div>
           </button>
         )}
       </div>

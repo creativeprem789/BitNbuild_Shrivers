@@ -12,9 +12,7 @@ import './index.css';
 
 type Page = 'workspace' | 'history';
 
-// --- Execution Orchestration Types ---
 export interface ExecSession {
-  /** Unique key — changes every time a new agent starts so ExecutionModal remounts fresh */
   sessionKey: string;
   taskId: string;
   agentId: AgentId;
@@ -22,44 +20,45 @@ export interface ExecSession {
   isClosing: boolean;
 }
 
+// ─────────────────────────────────────────────────────────────
+// Timing constants (all in ms)
+// ─────────────────────────────────────────────────────────────
+const TOKEN_TRAVEL_MS   = 1300;  // how long the token travels to a desk
+const FIRST_OPEN_DELAY  = 700;   // delay before first agent panel opens
+                                  //   (fast reception: token travel + small buffer)
+const NEXT_OPEN_DELAY   = 700;   // gap after old panel closes before new opens
+const PANEL_CLOSE_MS    = 850;   // must match CSS modal-content-out duration
+
 export function App() {
   const {
     useMock, setUseMock,
     connectionStatus,
     tasks, activityLogs, agentStates,
-    clearAllTasks
+    clearAllTasks,
   } = useTaskSocket(false);
 
-  const [currentPage, setCurrentPage] = useState<Page>('workspace');
-  const [chatOpen, setChatOpen] = useState(false);
-  const [justCompletedTask, setJustCompletedTask] = useState<ActiveTask | null>(null);
+  const [currentPage,        setCurrentPage]       = useState<Page>('workspace');
+  const [chatOpen,           setChatOpen]          = useState(false);
+  const [justCompletedTask,  setJustCompletedTask] = useState<ActiveTask | null>(null);
+  const [execSession,        setExecSession]       = useState<ExecSession | null>(null);
 
-  // ------------------------------------------------------------------
-  // Execution-panel state machine
-  // ------------------------------------------------------------------
-  const [execSession, setExecSession] = useState<ExecSession | null>(null);
-
-  // Track what we last showed so we don't duplicate
-  const lastShownAgentKeyRef = useRef<string>('');
+  const lastShownKeyRef   = useRef('');
   const isTransitioningRef = useRef(false);
+  // Tracks whether we already handled the step-complete close for a given session
+  const stepsDoneKeyRef   = useRef('');
 
-  /**
-   * Close the current panel (with animation) then run `then` callback.
-   */
+  // ── Close helper ────────────────────────────────────────────────
   const closePanel = useCallback((then?: () => void) => {
     setExecSession(prev => prev ? { ...prev, isClosing: true } : null);
     setTimeout(() => {
       setExecSession(null);
       isTransitioningRef.current = false;
       then?.();
-    }, 900); // matches CSS close animation
+    }, PANEL_CLOSE_MS);
   }, []);
 
-  /**
-   * Open a fresh panel for the given task+agent.
-   * Waits `openDelay` ms so the token travel animation can play first.
-   */
-  const openPanel = useCallback((task: ActiveTask, agentId: AgentId, openDelay: number) => {
+  // ── Open helper ─────────────────────────────────────────────────
+  const openPanel = useCallback((task: ActiveTask, agentId: AgentId, delay: number) => {
     setTimeout(() => {
       const key = `${task.id}-${agentId}-${Date.now()}`;
       setExecSession({
@@ -69,66 +68,69 @@ export function App() {
         taskDescription: task.description,
         isClosing: false,
       });
-    }, openDelay);
+    }, delay);
   }, []);
 
-  // Watch tasks → drive execution sequence
+  // ── React to task state changes ─────────────────────────────────
   useEffect(() => {
+    // Completed task bookkeeping
+    const completedTask = tasks.find(t => t.status === 'completed');
+    if (completedTask && (!justCompletedTask || justCompletedTask.id !== completedTask.id)) {
+      setJustCompletedTask(completedTask);
+    }
+
     const activeTask = tasks.find(
       t => (t.status === 'routed' || t.status === 'working') && t.currentAgentId
     );
 
-    // ── Task completed ──────────────────────────────────────────────
-    const completedTask = tasks.find(t => t.status === 'completed');
-    if (completedTask) {
-      if (!justCompletedTask || justCompletedTask.id !== completedTask.id) {
-        setJustCompletedTask(completedTask);
-      }
-      // If panel is open for this task, close it
-      if (execSession && execSession.taskId === completedTask.id && !execSession.isClosing) {
-        closePanel();
-        lastShownAgentKeyRef.current = '';
-        return;
-      }
-    }
-
-    // ── No active task ───────────────────────────────────────────────
     if (!activeTask?.currentAgentId) return;
 
     const newKey = `${activeTask.id}-${activeTask.currentAgentId}`;
-    if (newKey === lastShownAgentKeyRef.current) return;   // already showing this
-    if (isTransitioningRef.current) return;                 // mid-animation, wait
+    if (newKey === lastShownKeyRef.current) return;
+    if (isTransitioningRef.current) return;
 
-    lastShownAgentKeyRef.current = newKey;
+    lastShownKeyRef.current   = newKey;
     isTransitioningRef.current = true;
 
     if (execSession && !execSession.isClosing) {
-      // Different agent → close old panel first, then open new one
-      closePanel(() => {
-        // 600 ms gap so the user sees the token move before the next panel
-        openPanel(activeTask, activeTask.currentAgentId!, 600);
-      });
+      // Agent changed → close existing panel, then open new after gap
+      closePanel(() => openPanel(activeTask, activeTask.currentAgentId!, NEXT_OPEN_DELAY));
     } else {
-      // No panel open → wait for token travel (1 400 ms) then open
-      openPanel(activeTask, activeTask.currentAgentId!, 1400);
-      setTimeout(() => { isTransitioningRef.current = false; }, 1500);
+      // No panel open → wait for token to travel then open
+      openPanel(activeTask, activeTask.currentAgentId!, FIRST_OPEN_DELAY + TOKEN_TRAVEL_MS);
+      setTimeout(() => { isTransitioningRef.current = false; }, FIRST_OPEN_DELAY + TOKEN_TRAVEL_MS + 100);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tasks]);
 
-  // ── Blocked task: close panel ────────────────────────────────────
+  // Blocked task → close panel so user can see the desk
   useEffect(() => {
     const blocked = tasks.find(t => t.status === 'blocked');
     if (blocked && execSession && execSession.taskId === blocked.id && !execSession.isClosing) {
       closePanel();
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tasks]);
 
-  // ------------------------------------------------------------------
-  // Task dispatch / retry
-  // ------------------------------------------------------------------
+  // ── Called by ExecutionModal when all animation steps complete ──
+  // This is the PRIMARY close trigger. After every step is done the
+  // panel closes automatically — never stays open indefinitely.
+  const handleStepsComplete = useCallback(() => {
+    if (!execSession) return;
+    const key = execSession.sessionKey;
+    if (stepsDoneKeyRef.current === key) return;   // already handled
+    stepsDoneKeyRef.current = key;
+
+    if (!execSession.isClosing) {
+      closePanel();
+    }
+  }, [execSession, closePanel]);
+
+  // ── Dispatch / retry ────────────────────────────────────────────
   const handleDispatchTask = async (description: string) => {
     setJustCompletedTask(null);
-    lastShownAgentKeyRef.current = '';
+    lastShownKeyRef.current   = '';
+    stepsDoneKeyRef.current   = '';
     await apiCreateTask(description, useMock);
   };
 
@@ -138,9 +140,8 @@ export function App() {
 
   const handleManualOpenExecution = (task: ActiveTask) => {
     if (!task.currentAgentId) return;
-    const key = `${task.id}-${task.currentAgentId}-manual`;
     setExecSession({
-      sessionKey: key,
+      sessionKey: `${task.id}-${task.currentAgentId}-manual-${Date.now()}`,
       taskId: task.id,
       agentId: task.currentAgentId,
       taskDescription: task.description,
@@ -148,7 +149,7 @@ export function App() {
     });
   };
 
-  // ------------------------------------------------------------------
+  // ── Render ──────────────────────────────────────────────────────
   return (
     <div className="app-root">
       <Navigation
@@ -167,7 +168,8 @@ export function App() {
               onClearTasks={() => {
                 clearAllTasks();
                 setJustCompletedTask(null);
-                lastShownAgentKeyRef.current = '';
+                lastShownKeyRef.current   = '';
+                stepsDoneKeyRef.current   = '';
                 setExecSession(null);
               }}
               tasks={tasks}
@@ -193,7 +195,7 @@ export function App() {
         )}
       </main>
 
-      {/* Per-agent execution panel — keyed so it fully remounts per agent */}
+      {/* Execution panel — key forces full remount per agent */}
       {execSession && (
         <ExecutionModal
           key={execSession.sessionKey}
@@ -203,6 +205,7 @@ export function App() {
           taskId={execSession.taskId}
           isClosing={execSession.isClosing}
           onClose={() => closePanel()}
+          onStepsComplete={handleStepsComplete}
         />
       )}
 

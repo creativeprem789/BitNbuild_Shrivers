@@ -1,9 +1,16 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import type { ActiveTask, AgentId, TaskEvent } from '../types/task';
 import { AGENT_DEFINITIONS } from '../types/task';
 
 // ─────────────────────────────────────────────────────────────────
-// Per-agent step definitions  (human-readable, non-technical)
+// Timing constants
+// ─────────────────────────────────────────────────────────────────
+const STEP_MS      = 2200;   // time each step is "active" (normal)
+const FAST_STEP_MS = 350;    // fast-forward when task already completed
+const DONE_PAUSE   = 1000;   // pause after last step before signalling done
+
+// ─────────────────────────────────────────────────────────────────
+// Per-agent steps
 // ─────────────────────────────────────────────────────────────────
 const AGENT_STEPS: Record<AgentId, Array<{ label: string; detail: string }>> = {
   email_agent: [
@@ -15,39 +22,88 @@ const AGENT_STEPS: Record<AgentId, Array<{ label: string; detail: string }>> = {
     { label: 'Sending the email',                  detail: 'Delivering the message to the intended recipient(s)' },
   ],
   calendar_agent: [
-    { label: 'Understanding the scheduling request', detail: 'Identifying attendees, purpose and any time preferences' },
+    { label: 'Understanding the scheduling request', detail: 'Identifying attendees, purpose and time preferences' },
     { label: 'Checking the required date and time',  detail: 'Parsing dates, durations and time zone details' },
-    { label: 'Checking calendar availability',       detail: 'Finding free slots that work for all participants' },
-    { label: 'Preparing the event details',          detail: 'Setting up title, location, agenda and attendee list' },
-    { label: 'Confirming the schedule',              detail: 'Verifying no conflicts exist before committing' },
-    { label: 'Adding the event',                     detail: 'Creating the calendar entry and sending invitations' },
+    { label: 'Checking calendar availability',        detail: 'Finding free slots that work for all participants' },
+    { label: 'Preparing the event details',           detail: 'Setting up title, location, agenda and attendee list' },
+    { label: 'Confirming the schedule',               detail: 'Verifying no conflicts exist before committing' },
+    { label: 'Adding the event',                      detail: 'Creating the calendar entry and sending invitations' },
   ],
   search_agent: [
     { label: 'Understanding the research request', detail: 'Breaking down exactly what information is needed' },
     { label: 'Identifying relevant information',   detail: 'Determining the best sources and search strategies' },
-    { label: 'Searching available sources',        detail: 'Querying databases, web, and knowledge repositories' },
+    { label: 'Searching available sources',        detail: 'Querying databases, web and knowledge repositories' },
     { label: 'Comparing useful findings',          detail: 'Evaluating quality and relevance of discovered data' },
     { label: 'Organising the information',         detail: 'Structuring the key facts and insights clearly' },
     { label: 'Preparing the result',               detail: 'Compiling a clear, actionable summary or report' },
   ],
   custom_agent: [
-    { label: 'Understanding the request',            detail: 'Assessing what is needed and the best approach' },
-    { label: 'Reviewing the available information',  detail: 'Checking context, prior steps and relevant data' },
-    { label: 'Identifying the required action',      detail: 'Determining the exact steps needed to resolve this' },
+    { label: 'Understanding the request',           detail: 'Assessing what is needed and the best approach' },
+    { label: 'Reviewing the available information', detail: 'Checking context, prior steps and relevant data' },
+    { label: 'Identifying the required action',     detail: 'Determining the exact steps needed to resolve this' },
     { label: 'Resolving the request',               detail: 'Executing the required steps with available tools' },
-    { label: 'Verifying the result',                detail: 'Checking the outcome meets the original requirement' },
-    { label: 'Preparing the final response',        detail: 'Wrapping up and delivering a clear result' },
+    { label: 'Verifying the result',               detail: 'Checking the outcome meets the original requirement' },
+    { label: 'Preparing the final response',       detail: 'Wrapping up and delivering a clear result' },
   ],
 };
 
-const AGENT_ICON_CLASS: Record<AgentId, string> = {
-  email_agent:    'icon-email',
-  calendar_agent: 'icon-calendar',
-  search_agent:   'icon-research',
-  custom_agent:   'icon-executive',
+// ─────────────────────────────────────────────────────────────────
+// Contextual confirmation config — one per agent, at a specific step
+// ─────────────────────────────────────────────────────────────────
+interface ConfirmConfig {
+  afterStep: number;          // show confirmation AFTER this step index is done
+  intro: string;
+  suggestion: string;
+  yesLabel: string;
+  noLabel: string;
+  yesResult: string;          // text shown after YES
+  noResult: string;           // text shown after NO
+}
+
+const AGENT_CONFIRMATIONS: Partial<Record<AgentId, ConfirmConfig>> = {
+  email_agent: {
+    afterStep: 1,             // after "Preparing recipient details"
+    intro: 'I found a better subject for this email:',
+    suggestion: '"Engineering Team Meeting — Tomorrow\'s Review"',
+    yesLabel: 'Yes, use this subject',
+    noLabel: 'No, keep original',
+    yesResult: '✓ Subject confirmed — using suggested subject.',
+    noResult: '↩ Keeping the original subject as provided.',
+  },
+  calendar_agent: {
+    afterStep: 2,             // after "Checking availability"
+    intro: 'I found a potential time conflict. Schedule at 3:00 PM instead?',
+    suggestion: '3:00 PM — No conflicts detected',
+    yesLabel: 'Yes, use 3:00 PM',
+    noLabel: 'No, keep original time',
+    yesResult: '✓ Confirmed — scheduling at 3:00 PM.',
+    noResult: '↩ Using the originally requested time.',
+  },
+  search_agent: {
+    afterStep: 2,             // after "Searching sources"
+    intro: 'I found two source sets. Use the broader, more comprehensive set?',
+    suggestion: 'Broader set — 8 sources, 47 results',
+    yesLabel: 'Yes, use broader sources',
+    noLabel: 'No, use focused set',
+    yesResult: '✓ Confirmed — using the broader source set.',
+    noResult: '↩ Using the focused source set.',
+  },
+  custom_agent: {
+    afterStep: 2,             // after "Identifying required action"
+    intro: 'I identified two possible resolution paths. Which should I use?',
+    suggestion: 'Path A — Direct resolution (recommended)',
+    yesLabel: 'Use Path A (faster)',
+    noLabel: 'Use Path B (thorough)',
+    yesResult: '✓ Confirmed — proceeding with Path A.',
+    noResult: '↩ Proceeding with Path B.',
+  },
 };
 
-// Build human-readable journey from events
+const AGENT_ICON_CLASS: Record<AgentId, string> = {
+  email_agent: 'icon-email', calendar_agent: 'icon-calendar',
+  search_agent: 'icon-research', custom_agent: 'icon-executive',
+};
+
 function buildJourneyFromEvents(events: TaskEvent[]): AgentId[] {
   const agents: AgentId[] = [];
   for (const e of events) {
@@ -58,7 +114,7 @@ function buildJourneyFromEvents(events: TaskEvent[]): AgentId[] {
 }
 
 // ─────────────────────────────────────────────────────────────────
-// ExecutionModal – renders fresh every time (key forces remount)
+// ExecutionModal — fresh mount per agent (key prop in parent)
 // ─────────────────────────────────────────────────────────────────
 interface ExecutionModalProps {
   agentId: AgentId;
@@ -67,45 +123,101 @@ interface ExecutionModalProps {
   tasks: ActiveTask[];
   isClosing: boolean;
   onClose: () => void;
+  onStepsComplete?: () => void;   // ← called when all steps finish animating
 }
 
 export const ExecutionModal: React.FC<ExecutionModalProps> = ({
-  agentId,
-  taskDescription,
-  taskId,
-  tasks,
-  isClosing,
-  onClose,
+  agentId, taskDescription, taskId, tasks, isClosing, onClose, onStepsComplete,
 }) => {
-  const agentDef  = AGENT_DEFINITIONS[agentId];
-  const stepDefs  = AGENT_STEPS[agentId];
+  const agentDef   = AGENT_DEFINITIONS[agentId];
+  const stepDefs   = AGENT_STEPS[agentId];
   const totalSteps = stepDefs.length;
+  const conf       = AGENT_CONFIRMATIONS[agentId] ?? null;
 
-  // ── Step progression (starts from -1 = pre-start, then 0..N-1) ──
-  const [currentStep, setCurrentStep] = useState(-1);
+  // ── Core state ──────────────────────────────────────────────────
+  // currentStep: -1=not started, 0..N-1=current step index
+  const [currentStep,       setCurrentStep]       = useState(-1);
+  const [waitingConfirm,    setWaitingConfirm]    = useState(false);
+  const [confirmChoice,     setConfirmChoice]     = useState<'yes' | 'no' | null>(null);
+  const [allStepsDone,      setAllStepsDone]      = useState(false);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Small entry delay so the panel itself has animated in first
+  const clearTimer = () => {
+    if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
+  };
+
+  // Live task info
+  const liveTask       = tasks.find(t => t.id === taskId);
+  const isCompleted    = liveTask?.status === 'completed';
+  const isBlocked      = liveTask?.status === 'blocked';
+  const journey        = liveTask ? buildJourneyFromEvents(liveTask.events) : [];
+
+  // Speed multiplier: fast-forward if backend already completed
+  const stepDuration = isCompleted ? FAST_STEP_MS : STEP_MS;
+
+  // ── Entry: start steps after modal has animated in ───────────────
   useEffect(() => {
-    const startTimer = setTimeout(() => setCurrentStep(0), 400);
-    return () => clearTimeout(startTimer);
+    timerRef.current = setTimeout(() => setCurrentStep(0), 500);
+    return clearTimer;
   }, []);
 
-  // Advance step every 2 000 ms
+  // ── Step engine ──────────────────────────────────────────────────
   useEffect(() => {
-    if (currentStep < 0 || currentStep >= totalSteps - 1) return;
-    const t = setTimeout(() => setCurrentStep(s => s + 1), 2000);
-    return () => clearTimeout(t);
-  }, [currentStep, totalSteps]);
+    clearTimer();
+    if (currentStep < 0)  return;
+    if (waitingConfirm)   return;   // paused — waiting for user
+    if (allStepsDone)     return;
 
-  // Derive live task status for this taskId
-  const liveTask = tasks.find(t => t.id === taskId);
-  const isTaskCompleted = liveTask?.status === 'completed';
-  const isTaskBlocked   = liveTask?.status === 'blocked';
-  const journey = liveTask ? buildJourneyFromEvents(liveTask.events) : [];
+    // Last step: signal completion after pause
+    if (currentStep >= totalSteps - 1) {
+      timerRef.current = setTimeout(() => {
+        setAllStepsDone(true);
+        // Give a beat to show the final ✓, then tell parent to close
+        setTimeout(() => onStepsComplete?.(), DONE_PAUSE);
+      }, stepDuration);
+      return clearTimer;
+    }
 
-  // Display step — snap to end if task already completed
-  const displayStep = isTaskCompleted ? totalSteps - 1 : Math.max(currentStep, 0);
-  const progressPct = ((displayStep + 1) / totalSteps) * 100;
+    // Show confirmation pause? (only in non-fast mode)
+    const nextStep = currentStep + 1;
+    if (!isCompleted && conf && currentStep === conf.afterStep && confirmChoice === null) {
+      // Pause after current step finishes display, then wait for user
+      timerRef.current = setTimeout(() => setWaitingConfirm(true), stepDuration);
+      return clearTimer;
+    }
+
+    // Advance normally
+    timerRef.current = setTimeout(() => setCurrentStep(s => s + 1), stepDuration);
+    return clearTimer;
+  }, [currentStep, waitingConfirm, confirmChoice, allStepsDone, isCompleted]);
+
+  // Cleanup on unmount
+  useEffect(() => clearTimer, []);
+
+  // ── Confirmation handler ─────────────────────────────────────────
+  const handleConfirm = (choice: 'yes' | 'no') => {
+    setConfirmChoice(choice);
+    setWaitingConfirm(false);
+    // Brief pause so user sees their choice, then resume
+    timerRef.current = setTimeout(() => setCurrentStep(s => s + 1), 600);
+  };
+
+  // ── Render helpers ───────────────────────────────────────────────
+  // displayStep: the step that is currently "active" (showing ●)
+  const displayStep = Math.max(currentStep, 0);
+  // Progress: count done steps
+  const doneCount   = allStepsDone ? totalSteps : displayStep;
+  const progressPct = (doneCount / totalSteps) * 100;
+
+  const headerStatus = allStepsDone
+    ? '✓ All done — closing'
+    : isCompleted
+    ? '✓ Work complete'
+    : isBlocked
+    ? '⚠ Needs your attention'
+    : waitingConfirm
+    ? '⏸ Waiting for your input…'
+    : 'Working on your task…';
 
   return (
     <div
@@ -116,36 +228,28 @@ export const ExecutionModal: React.FC<ExecutionModalProps> = ({
         className={`execution-modal ${isClosing ? 'modal-content-out' : ''}`}
         onClick={e => e.stopPropagation()}
       >
-        {/* ── Header ─────────────────────────────────────────── */}
+        {/* ── Header ──────────────────────────────────────────────── */}
         <div className="modal-header">
           <div className={`modal-agent-icon ${AGENT_ICON_CLASS[agentId]}`}>
             {agentDef.avatar}
           </div>
           <div className="modal-title-block">
             <div className="modal-title">{agentDef.name}</div>
-            <div className="modal-subtitle">
-              {isTaskCompleted
-                ? '✓ Work complete — handing off'
-                : isTaskBlocked
-                ? '⚠ Needs your attention'
-                : 'Working on your task…'}
-            </div>
+            <div className="modal-subtitle">{headerStatus}</div>
           </div>
           <button className="modal-close" onClick={onClose} aria-label="Close">✕</button>
         </div>
 
-        {/* ── Task description ────────────────────────────────── */}
+        {/* ── Task description ─────────────────────────────────────── */}
         <div className="modal-task-desc">"{taskDescription}"</div>
 
-        {/* ── Journey path (multi-agent) ──────────────────────── */}
+        {/* ── Multi-agent journey path ─────────────────────────────── */}
         {journey.length > 1 && (
           <div className="modal-journey">
             <span className="modal-journey-label">Journey so far:</span>
             {journey.map((aid, i) => (
               <React.Fragment key={aid}>
-                <span
-                  className={`journey-chip ${aid === agentId ? 'journey-chip-active' : 'journey-chip-done'}`}
-                >
+                <span className={`journey-chip ${aid === agentId ? 'journey-chip-active' : 'journey-chip-done'}`}>
                   {AGENT_DEFINITIONS[aid].avatar} {AGENT_DEFINITIONS[aid].name}
                 </span>
                 {i < journey.length - 1 && <span className="journey-sep">→</span>}
@@ -154,48 +258,66 @@ export const ExecutionModal: React.FC<ExecutionModalProps> = ({
           </div>
         )}
 
-        {/* ── Steps list ─────────────────────────────────────── */}
+        {/* ── Steps list — with embedded confirmation ──────────────── */}
         <div className="steps-list">
           {stepDefs.map((def, i) => {
-            const status: 'done' | 'active' | 'pending' =
-              i < displayStep ? 'done'
-              : i === displayStep ? 'active'
-              : 'pending';
+            // Determine individual step state
+            const isDone    = allStepsDone || i < displayStep;
+            const isActive  = !allStepsDone && i === displayStep;
+            const isPending = !allStepsDone && !isDone && !isActive;
+            const status    = isDone ? 'done' : isActive ? 'active' : 'pending';
+
             return (
-              <div key={i} className={`step-item step-item-${status}`}>
-                <div className={`step-icon step-${status}`}>
-                  {status === 'done' ? '✓' : status === 'active' ? <PulseCircle /> : i + 1}
+              <React.Fragment key={i}>
+                {/* Step row */}
+                <div className={`step-item step-item-${status}`}>
+                  <div className={`step-icon step-${status}`}>
+                    {isDone  ? '✓'
+                     : isActive ? <PulseDot />
+                     : '○'}
+                  </div>
+                  <div className="step-content">
+                    <div className={`step-label step-${status}`}>{def.label}</div>
+                    {isActive && !waitingConfirm && (
+                      <div className="step-detail">{def.detail}</div>
+                    )}
+                  </div>
                 </div>
-                <div className="step-content">
-                  <div className={`step-label step-${status}`}>{def.label}</div>
-                  {status === 'active' && (
-                    <div className="step-detail">{def.detail}</div>
-                  )}
-                </div>
-              </div>
+
+                {/* Inject confirmation panel AFTER the trigger step */}
+                {conf && i === conf.afterStep && (
+                  <>
+                    {waitingConfirm && !confirmChoice && (
+                      <ConfirmPanel conf={conf} onConfirm={handleConfirm} />
+                    )}
+                    {confirmChoice && (
+                      <ConfirmResult choice={confirmChoice} conf={conf} />
+                    )}
+                  </>
+                )}
+              </React.Fragment>
             );
           })}
         </div>
 
-        {/* ── Progress bar ───────────────────────────────────── */}
+        {/* ── Progress bar ─────────────────────────────────────────── */}
         <div className="step-progress-row">
-          <span className="step-counter">Step {displayStep + 1} of {totalSteps}</span>
+          <span className="step-counter">
+            {allStepsDone ? `All ${totalSteps} steps done` : `Step ${displayStep + 1} of ${totalSteps}`}
+          </span>
           <div className="step-progress-bar">
             <div
-              className={`step-progress-fill ${isTaskCompleted ? 'done' : ''}`}
+              className={`step-progress-fill ${allStepsDone ? 'done' : ''}`}
               style={{ width: `${progressPct}%` }}
             />
           </div>
-          <span
-            className="step-counter"
-            style={{ color: isTaskCompleted ? 'var(--status-done)' : undefined }}
-          >
-            {isTaskCompleted ? '✓ Done' : `${Math.round(progressPct)}%`}
+          <span className="step-counter" style={{ color: allStepsDone ? 'var(--status-done)' : undefined }}>
+            {allStepsDone ? '✓ Done' : `${Math.round(progressPct)}%`}
           </span>
         </div>
 
-        {/* ── Blocked warning ────────────────────────────────── */}
-        {isTaskBlocked && liveTask?.blockReason && (
+        {/* ── Blocked warning ─────────────────────────────────────── */}
+        {isBlocked && liveTask?.blockReason && (
           <div className="modal-blocked-banner">
             ⚠ <strong>Attention needed:</strong> {liveTask.blockReason}
           </div>
@@ -205,9 +327,32 @@ export const ExecutionModal: React.FC<ExecutionModalProps> = ({
   );
 };
 
-// Small animated pulse circle for the active step icon
-const PulseCircle: React.FC = () => (
-  <span style={{ display: 'inline-block', width: '10px', height: '10px', borderRadius: '50%', background: 'currentColor', animation: 'step-pulse-inner 1.2s ease-in-out infinite' }}>
-    <style>{`@keyframes step-pulse-inner { 0%,100%{opacity:1} 50%{opacity:0.4} }`}</style>
-  </span>
+// ── Pulsing dot for active step icon ────────────────────────────
+const PulseDot: React.FC = () => (
+  <span className="pulse-dot" />
+);
+
+// ── Contextual confirmation panel ────────────────────────────────
+const ConfirmPanel: React.FC<{ conf: ConfirmConfig; onConfirm: (c: 'yes' | 'no') => void }> = ({ conf, onConfirm }) => (
+  <div className="confirm-panel">
+    <div className="confirm-panel-intro">{conf.intro}</div>
+    <div className="confirm-panel-suggestion">
+      {conf.suggestion}
+    </div>
+    <div className="confirm-panel-actions">
+      <button className="confirm-btn confirm-btn-yes" onClick={() => onConfirm('yes')}>
+        ✓ {conf.yesLabel}
+      </button>
+      <button className="confirm-btn confirm-btn-no" onClick={() => onConfirm('no')}>
+        ↩ {conf.noLabel}
+      </button>
+    </div>
+  </div>
+);
+
+// ── Result after confirmation ────────────────────────────────────
+const ConfirmResult: React.FC<{ choice: 'yes' | 'no'; conf: ConfirmConfig }> = ({ choice, conf }) => (
+  <div className={`confirm-result confirm-result-${choice}`}>
+    {choice === 'yes' ? conf.yesResult : conf.noResult}
+  </div>
 );

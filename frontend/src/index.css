@@ -341,15 +341,25 @@ body {
 }
 
 .preset-pill {
-  padding: 5px 12px;
+  padding: 8px 12px;
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 20px;
+  border-radius: 8px; /* Slightly less rounded for the card look */
   font-size: 12px;
   font-weight: 500;
   color: var(--text-secondary);
   cursor: pointer;
-  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1), 
+              box-shadow 0.5s cubic-bezier(0.16, 1, 0.3, 1),
+              background 0.2s, border-color 0.2s, color 0.2s;
+  will-change: transform, box-shadow;
+}
+
+.preset-pill-content {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -359,6 +369,21 @@ body {
   background: var(--surface-subtle);
   border-color: var(--border-strong);
   color: var(--text-primary);
+}
+
+.preset-pill-selected {
+  transform: scale(1.06) translateY(-2px);
+  box-shadow: 0 6px 12px rgba(61,43,31,0.12), 0 2px 4px rgba(61,43,31,0.06);
+  border-color: var(--accent);
+  background: white;
+  z-index: 10;
+}
+
+.preset-pill-subtitle {
+  font-size: 10px;
+  color: var(--accent);
+  font-weight: 600;
+  margin-top: 2px;
 }
 
 .preset-tag {
@@ -2222,3 +2247,100 @@ body {
 .icon-executive { background: var(--executive-bg); color: var(--executive-color); border-color: rgba(180, 83, 9, 0.2); }
 .icon-reception { background: #f5f0ec; color: var(--accent); border: 1px solid rgba(61, 43, 31, 0.15); }
 .icon-submit { background: var(--status-done-bg); color: var(--status-done); border: 1px solid var(--status-done-border); }
+
+/* ============================================================
+   EXECUTION MODAL NEW STYLES (Pulse & Confirm Panel)
+   ============================================================ */
+
+.pulse-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: currentColor;
+  animation: step-pulse-inner 1.2s ease-in-out infinite;
+}
+@keyframes step-pulse-inner {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.85); }
+}
+
+.step-item-pending .step-icon {
+  font-size: 14px; /* Using circle unicode ○ or normal number */
+}
+
+.confirm-panel {
+  margin: 12px 0 12px 32px;
+  padding: 16px;
+  background: white;
+  border: 1.5px solid var(--accent);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(61,43,31,0.08);
+  animation: fade-in-up 0.4s ease-out forwards;
+}
+
+.confirm-panel-intro {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+}
+
+.confirm-panel-suggestion {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 16px;
+  padding: 10px;
+  background: var(--surface-subtle);
+  border-radius: 6px;
+  border: 1px solid var(--border);
+}
+
+.confirm-panel-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.confirm-btn {
+  flex: 1;
+  padding: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: 1.5px solid transparent;
+}
+
+.confirm-btn-yes {
+  background: var(--accent);
+  color: white;
+  box-shadow: 0 2px 6px rgba(61,43,31,0.2);
+}
+.confirm-btn-yes:hover {
+  background: var(--accent-hover);
+}
+
+.confirm-btn-no {
+  background: white;
+  color: var(--text-secondary);
+  border-color: var(--border-strong);
+}
+.confirm-btn-no:hover {
+  background: var(--surface-subtle);
+  color: var(--text-primary);
+}
+
+.confirm-result {
+  margin: 4px 0 16px 32px;
+  font-size: 13px;
+  font-weight: 500;
+  animation: fade-in 0.4s ease-out;
+}
+.confirm-result-yes {
+  color: var(--status-done);
+}
+.confirm-result-no {
+  color: var(--text-muted);
+}
+
